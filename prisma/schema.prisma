@@ -1,0 +1,443 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile   Profile?
+  profileId String?  @unique @db.ObjectId
+
+  token   Token?
+  tokenId String? @unique @db.ObjectId
+
+  // Connections
+  publications        Publication[]
+  reviews             Review[]
+  comments            Comment[]
+  collaborations      Collaboration[]
+  bookmarks           Bookmark[]
+  notifications       Notification[]
+  rewards             Reward[]
+  hostedEvents        Event[]            @relation("EventHost")
+  eventParticipations EventParticipant[]
+  chatParticipations  ChatParticipant[]
+  aiFeatures          AIFeature[]
+  EventMessage        EventMessage[]
+  ChatMessage         ChatMessage[]
+}
+
+model Profile {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @db.ObjectId
+
+  profileImageUrl      String?
+  profileImagePublicId String?
+  bio                  String?
+  linkedin             String?
+  expertise            String[]
+  languages            String[]
+
+  updatedAt DateTime @updatedAt
+}
+
+model Token {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique @db.ObjectId
+
+  walletAddress String @unique
+  tokenBalance  Float  @default(0)
+  reputation    Float  @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Publication {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  abstract   String
+  content    String
+  keywords   String[]
+  language   String
+  status     PublicationStatus @default(DRAFT)
+  visibility Visibility        @default(PUBLIC)
+  views      Int               @default(0)
+  citations  Int               @default(0)
+  ipfsHash   String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  // Relations
+  author         User            @relation(fields: [authorId], references: [id])
+  authorId       String          @db.ObjectId
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryId     String          @db.ObjectId
+  reviews        Review[]
+  comments       Comment[]
+  bookmarks      Bookmark[]
+  versions       Version[]
+  rewards        Reward[]
+  collaborations Collaboration[]
+  aiFeatures     AIFeature[]
+  Event          Event[]
+
+  @@index([authorId, categoryId])
+}
+
+model Category {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String        @unique
+  description  String
+  publications Publication[]
+  parentId     String?       @db.ObjectId
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     Category[]    @relation("CategoryHierarchy")
+
+  @@index([name, parentId])
+}
+
+model Review {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  rating    Float
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relations
+  reviewer      User        @relation(fields: [reviewerId], references: [id])
+  reviewerId    String      @db.ObjectId
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId String      @db.ObjectId
+  rewards       Reward[]
+
+  @@index([reviewerId, publicationId])
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author        User        @relation(fields: [authorId], references: [id])
+  authorId      String      @db.ObjectId
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId String      @db.ObjectId
+  parentId      String?     @db.ObjectId
+  parent        Comment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies       Comment[]   @relation("CommentReplies")
+
+  @@index([authorId, publicationId])
+}
+
+model Collaboration {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  role      CollaboratorRole
+  status    CollaborationStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  // Relations
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String      @db.ObjectId
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId String      @db.ObjectId
+
+  @@index([userId, publicationId])
+}
+
+model Version {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  versionNumber Int
+  changes       Json
+  ipfsHash      String
+  createdAt     DateTime @default(now())
+
+  // Relations
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId String      @db.ObjectId
+
+  @@index([publicationId])
+}
+
+model Reward {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  amount          Float
+  type            RewardType
+  status          RewardStatus @default(PENDING)
+  transactionHash String?
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String       @db.ObjectId
+  publication   Publication? @relation(fields: [publicationId], references: [id])
+  publicationId String?      @db.ObjectId
+  review        Review?      @relation(fields: [reviewId], references: [id])
+  reviewId      String?      @db.ObjectId
+
+  @@index([userId, publicationId, reviewId])
+}
+
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+
+  @@index([userId])
+}
+
+model Bookmark {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+
+  // Relations
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String      @db.ObjectId
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId String      @db.ObjectId
+
+  @@index([userId, publicationId])
+}
+
+model Event {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  startDate       DateTime
+  endDate         DateTime
+  type            EventType   @default(DISCUSSION)
+  status          EventStatus @default(UPCOMING)
+  maxParticipants Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  host          User               @relation("EventHost", fields: [hostId], references: [id])
+  hostId        String             @db.ObjectId
+  participants  EventParticipant[]
+  messages      EventMessage[]
+  publication   Publication?       @relation(fields: [publicationId], references: [id])
+  publicationId String?            @db.ObjectId
+
+  @@index([hostId, publicationId])
+}
+
+model EventParticipant {
+  id       String          @id @default(auto()) @map("_id") @db.ObjectId
+  role     ParticipantRole @default(ATTENDEE)
+  joinedAt DateTime        @default(now())
+
+  // Relations
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @db.ObjectId
+  event   Event  @relation(fields: [eventId], references: [id])
+  eventId String @db.ObjectId
+
+  @@index([userId, eventId])
+}
+
+model EventMessage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sender   User   @relation(fields: [senderId], references: [id])
+  senderId String @db.ObjectId
+  event    Event  @relation(fields: [eventId], references: [id])
+  eventId  String @db.ObjectId
+
+  @@index([senderId, eventId])
+}
+
+model Chat {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      ChatType @default(DIRECT)
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  participants ChatParticipant[]
+  messages     ChatMessage[]
+
+  @@index([name])
+}
+
+model ChatParticipant {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  role     ChatRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+  chat   Chat   @relation(fields: [chatId], references: [id])
+  chatId String @db.ObjectId
+
+  @@index([userId, chatId])
+}
+
+model ChatMessage {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  type      MessageType @default(TEXT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // Relations
+  sender   User   @relation(fields: [senderId], references: [id])
+  senderId String @db.ObjectId
+  chat     Chat   @relation(fields: [chatId], references: [id])
+  chatId   String @db.ObjectId
+
+  @@index([senderId, chatId])
+}
+
+model AIFeature {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  type          AIFeatureType
+  inputContent  String
+  outputContent String
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+
+  // Relations
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String       @db.ObjectId
+  publication   Publication? @relation(fields: [publicationId], references: [id])
+  publicationId String?      @db.ObjectId
+
+  @@index([userId, publicationId])
+}
+
+// Enums (unchanged)
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum PublicationStatus {
+  DRAFT
+  UNDER_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  LIMITED
+}
+
+enum CollaboratorRole {
+  AUTHOR
+  EDITOR
+  REVIEWER
+}
+
+enum CollaborationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum RewardType {
+  PUBLICATION
+  REVIEW
+  CITATION
+  COLLABORATION
+}
+
+enum RewardStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum NotificationType {
+  REVIEW_REQUEST
+  COMMENT
+  COLLABORATION_INVITE
+  REWARD_EARNED
+  PUBLICATION_UPDATE
+}
+
+enum EventType {
+  DISCUSSION
+  WORKSHOP
+  QA_SESSION
+  PRESENTATION
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipantRole {
+  HOST
+  MODERATOR
+  SPEAKER
+  ATTENDEE
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+  CHANNEL
+}
+
+enum ChatRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  IMAGE
+  LINK
+}
+
+enum AIFeatureType {
+  SUMMARY
+  TRANSLATION
+  RECOMMENDATION
+  CHATBOT
+  ANALYSIS
+}
