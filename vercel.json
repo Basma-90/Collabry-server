@@ -14,7 +14,15 @@
         "headers": {
           "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, refreshToken , accessToken,access-control-allow-origin, access-control-allow-credentials"
         }
-      }
+      },
+   {
+      "src": "/swagger-ui/(.*)",
+      "dest": "src/main.ts"
+    },
+    {
+      "src": "/swagger/(.*)",
+      "dest": "src/main.ts"
+    }
     ],
   
     "buildCommand": "prisma generate && npm run build"
