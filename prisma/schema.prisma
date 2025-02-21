@@ -10,18 +10,16 @@ datasource db {
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
-  name      String
+  name      String?
   password  String
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  profile   Profile?
-  profileId String?  @unique @db.ObjectId
+  profile Profile?
 
-  token   Token?
-  tokenId String? @unique @db.ObjectId
+  token Token?
 
   // Connections
   publications        Publication[]
@@ -40,30 +38,26 @@ model User {
 }
 
 model Profile {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @unique @db.ObjectId
-
-  profileImageUrl      String?
-  profileImagePublicId String?
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  user                 User     @relation(fields: [userId], references: [id])
+  userId               String   @unique @db.ObjectId
+  profileImageUrl      String
+  profileImagePublicId String
   bio                  String?
   linkedin             String?
   expertise            String[]
   languages            String[]
-
-  updatedAt DateTime @updatedAt
+  updatedAt            DateTime @updatedAt
 }
 
 model Token {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @unique @db.ObjectId
-
-  walletAddress String @unique
-  tokenBalance  Float  @default(0)
-  reputation    Float  @default(0)
-
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String   @unique @db.ObjectId
+  walletAddress String   @unique
+  tokenBalance  Float    @default(0)
+  reputation    Float    @default(0)
+  updatedAt     DateTime @updatedAt
 }
 
 model Publication {
