@@ -3,8 +3,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CloudinaryProvider } from 'src/storage/cloudinary/cloudinary.provider';
-import { CloudinaryService } from 'src/storage/cloudinary/cloudinary.service';
+import { CloudinaryProvider } from '../cloudinary/cloudinary.provider';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Module({
   imports: [PrismaModule],
