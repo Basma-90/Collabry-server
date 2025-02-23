@@ -10,7 +10,6 @@ datasource db {
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
-  name      String?
   password  String
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
@@ -18,8 +17,7 @@ model User {
 
   // Relations
   profile Profile?
-
-  token Token?
+  token   Token?
 
   // Connections
   publications        Publication[]
@@ -35,19 +33,28 @@ model User {
   aiFeatures          AIFeature[]
   EventMessage        EventMessage[]
   ChatMessage         ChatMessage[]
+
+  @@map("users")
 }
 
 model Profile {
   id                   String   @id @default(auto()) @map("_id") @db.ObjectId
-  user                 User     @relation(fields: [userId], references: [id])
   userId               String   @unique @db.ObjectId
-  profileImageUrl      String
-  profileImagePublicId String
+  firstName            String?
+  lastName             String?
+  profileImageUrl      String?
+  profileImagePublicId String?
   bio                  String?
   linkedin             String?
   expertise            String[]
   languages            String[]
+  createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
 }
 
 model Token {
