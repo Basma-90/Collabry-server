@@ -15,6 +15,8 @@ model User {
   role      UserRole @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+   refreshToken String?
+   isEmailVerified Boolean? @default(false)
 
   // Relations
   profile Profile?
@@ -227,6 +229,7 @@ model Event {
   maxParticipants Int?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
 
   // Relations
   host          User               @relation("EventHost", fields: [hostId], references: [id])
