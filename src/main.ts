@@ -8,6 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setViewEngine('ejs');
   app.useGlobalPipes(new ValidationPipe());
+  app.setBaseViewsDir('src/modules/mail/templates');
 
   const swagger = new DocumentBuilder()
     .setTitle('Collabry API')

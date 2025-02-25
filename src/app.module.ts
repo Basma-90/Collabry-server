@@ -15,10 +15,23 @@ import { PublicationsModule } from './modules/publications/publications.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
 import { TokensModule } from './modules/tokens/tokens.module';
 import { UsersModule } from './modules/users/users.module';
+import { PrismaService } from './prisma/prisma.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'config/configuration';
+import { MailModule } from './modules/mail/mail.module';
+import { AuthController } from './modules/auth/auth.controller';
+import { join } from 'path';
 
 @Module({
-  imports: [AuthModule, AiFeaturesModule, BookmarksModule, CategoriesModule, ChatModule, CollaborationsModule, EventsModule, NotificationsModule, PrismaModule, ProfilesModule, PublicationsModule, RewardsModule, TokensModule, UsersModule],
+  imports: [AuthModule, AiFeaturesModule, BookmarksModule, CategoriesModule, ChatModule, CollaborationsModule, EventsModule, NotificationsModule, PrismaModule, ProfilesModule, PublicationsModule, RewardsModule, TokensModule, UsersModule,
+    ConfigModule.forRoot({
+      isGlobal:true,
+      envFilePath:join(__dirname, '..', '..', '.env'),
+      load:[configuration],
+    }),
+     MailModule,ConfigModule
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,ConfigService],
 })
 export class AppModule {}
