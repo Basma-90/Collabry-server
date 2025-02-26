@@ -8,12 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  password  String
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  email           String   @unique
+  password        String
+  role            UserRole @default(USER)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  refreshToken    String?
+  isEmailVerified Boolean? @default(false)
 
   // Relations
   profile Profile?
@@ -67,11 +69,12 @@ model Token {
   updatedAt     DateTime @updatedAt
 }
 
+// Enhanced Publication and related models
 model Publication {
   id         String            @id @default(auto()) @map("_id") @db.ObjectId
   title      String
   abstract   String
-  content    String
+  sections   Section[] // New: Breaking content into sections
   keywords   String[]
   language   String
   status     PublicationStatus @default(DRAFT)
@@ -85,7 +88,7 @@ model Publication {
   // Relations
   author         User            @relation(fields: [authorId], references: [id])
   authorId       String          @db.ObjectId
-  category       Category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  category       Category        @relation(fields: [categoryId], references: [id])
   categoryId     String          @db.ObjectId
   reviews        Review[]
   comments       Comment[]
@@ -97,6 +100,45 @@ model Publication {
   Event          Event[]
 
   @@index([authorId, categoryId])
+}
+
+// Section model for structured content
+model Section {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  orderIndex    Int
+  content       String
+  type          SectionType   @default(TEXT)
+  publication   Publication   @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  publicationId String        @db.ObjectId
+  files         SectionFile[] // Files specific to this section
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([publicationId, orderIndex])
+}
+
+// New: Section-specific files
+model SectionFile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  url       String
+  publicId  String?
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sectionId])
+}
+
+// New enums
+enum SectionType {
+  TEXT
+  CODE
+  MATH
+  DIAGRAM
+  MEDIA
+  REFERENCES
 }
 
 model Category {
@@ -345,9 +387,7 @@ enum UserRole {
 
 enum PublicationStatus {
   DRAFT
-  UNDER_REVIEW
   PUBLISHED
-  REJECTED
 }
 
 enum ReviewStatus {

@@ -10,10 +10,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ProfilesService } from './profiles.service';
-import { AuthGuard } from 'src/common/gurads/auth.guard';
-import { RolesGuard } from 'src/common/gurads/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -23,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { UpdateProfileDto } from './dtos/UpdateProfile.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { authGuard } from 'src/guards/auth.guard';
 
 @Controller('profiles')
 export class ProfilesController {
@@ -35,8 +32,7 @@ export class ProfilesController {
  * @access  for authenticated user 
  ------------------------------------------------*/
   @Get('profile')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.USER)
+  @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get user profile' })
   @ApiResponse({ status: 200, description: 'Returns user profile' })
@@ -52,8 +48,7 @@ export class ProfilesController {
  * @access  for authenticated user 
  ------------------------------------------------*/
   @Put('profile')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.USER)
+  @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user profile' })
   @ApiResponse({ status: 200, description: 'Returns updated user profile' })
@@ -73,8 +68,8 @@ export class ProfilesController {
  * @access  for authenticated user 
  ------------------------------------------------*/
   @Patch('profile/avatar')
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.USER)
+  @UseGuards(authGuard)
+  // @Roles(UserRole.USER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user profile image' })
   @ApiResponse({ status: 200, description: 'Returns updated user profile' })
