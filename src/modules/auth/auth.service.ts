@@ -130,6 +130,9 @@ export class AuthService {
         });
     }
     async getUserById(userId:string){
+        if(!userId){
+            throw new Error('User not found');
+        }
         return await this.prismaService.user.findUnique({
             where: {
                 id: userId
@@ -254,7 +257,10 @@ export class AuthService {
             accessToken,
             refreshToken
         }
+    }   
+    async verifyToken(token:string){
+        return jwt.verify(token, this.configService.get('publicKey.secret'));
     }
-    
 }
+
 

@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { query } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { authGuard } from 'src/guards/auth.guard';
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -126,6 +128,13 @@ export class AuthController {
     @UseGuards(AuthGuard('google'))
     async googleAuthRedirect(@Request() req) {
         return await this.authService.googleLogin(req.user);
+    }
+
+    @Get('/me')
+    @ApiOperation({ summary: 'Get User' })
+    @UseGuards(authGuard)
+    async getUser(@Request() req) {
+        return req.user;
     }
 }
 
