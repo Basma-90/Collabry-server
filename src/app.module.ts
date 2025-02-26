@@ -9,16 +9,42 @@ import { ChatModule } from './modules/chat/chat.module';
 import { CollaborationsModule } from './modules/collaborations/collaborations.module';
 import { EventsModule } from './modules/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { PrismaModule } from './modules/prisma/prisma.module';
-import { ProfilesModule } from './modules/profiles/profiles.module';
-import { PublicationsModule } from './modules/publications/publications.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
 import { TokensModule } from './modules/tokens/tokens.module';
 import { UsersModule } from './modules/users/users.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'config/configuration';
+import { MailModule } from './modules/mail/mail.module';
+import { join } from 'path';
+import { ProfilesModule } from './modules/profiles/profiles.module';
+import { PublicationsModule } from './modules/publications/publications.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [AuthModule, AiFeaturesModule, BookmarksModule, CategoriesModule, ChatModule, CollaborationsModule, EventsModule, NotificationsModule, PrismaModule, ProfilesModule, PublicationsModule, RewardsModule, TokensModule, UsersModule],
+  imports: [
+    AuthModule,
+    AiFeaturesModule,
+    BookmarksModule,
+    CategoriesModule,
+    ChatModule,
+    CollaborationsModule,
+    EventsModule,
+    NotificationsModule,
+    PrismaModule,
+    ProfilesModule,
+    PublicationsModule,
+    RewardsModule,
+    TokensModule,
+    UsersModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(__dirname, '..', '..', '.env'),
+      load: [configuration],
+    }),
+    MailModule,
+    ConfigModule,
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ConfigService],
 })
 export class AppModule {}

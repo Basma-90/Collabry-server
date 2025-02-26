@@ -3,9 +3,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dtos/UpdateProfile.dto';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CloudinaryService } from 'src/storage/cloudinary/cloudinary.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ProfilesService {
@@ -15,6 +15,8 @@ export class ProfilesService {
   ) {}
 
   async getProfile(userId: string) {
+    // console.log(userId, 'getProfile');
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -72,32 +74,60 @@ export class ProfilesService {
       where: {
         id: userId,
       },
+      select: {
+        id: true,
+        profile: true,
+      },
     });
     if (!user) {
       throw new UnauthorizedException();
     }
-    const updatedProfile = await this.prisma.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        profile: {
-          update: {
-            firstName: profileDto.firstName,
-            lastName: profileDto.lastName,
-            bio: profileDto.bio,
-            linkedin: profileDto.linkedin,
-            expertise: {
-              set: profileDto.expertise,
+    if (!user.profile) {
+      await this.prisma.profile.create({
+        data: {
+          user: {
+            connect: {
+              id: userId,
             },
-            languages: {
-              set: profileDto.languages,
+          },
+          firstName: profileDto.firstName,
+          lastName: profileDto.lastName,
+          bio: profileDto.bio,
+          linkedin: profileDto.linkedin,
+          expertise: {
+            set: profileDto.expertise,
+          },
+          languages: {
+            set: profileDto.languages,
+          },
+        },
+      });
+      return 'user profile updated successfully';
+    } else {
+      await this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          profile: {
+            update: {
+              firstName: profileDto.firstName,
+              lastName: profileDto.lastName,
+
+              bio: profileDto.bio,
+              linkedin: profileDto.linkedin,
+              expertise: {
+                set: profileDto.expertise,
+              },
+              languages: {
+                set: profileDto.languages,
+              },
             },
           },
         },
-      },
-    });
-    return 'user profile updated successfully';
+      });
+      return 'user profile updated successfully';
+    }
   }
 
   async updateProfileImage(userId: string, image: Express.Multer.File) {
