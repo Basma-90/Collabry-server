@@ -399,7 +399,6 @@ enum ReviewStatus {
 enum Visibility {
   PUBLIC
   PRIVATE
-  LIMITED
 }
 
 enum CollaboratorRole {

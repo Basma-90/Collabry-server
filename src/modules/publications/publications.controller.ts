@@ -1,6 +1,9 @@
 import {
   Body,
   Controller,
+  Get,
+  Param,
+  Patch,
   Post,
   Req,
   UploadedFiles,
@@ -17,7 +20,12 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { CreatePublicationDto, SectionDto } from './dtos/publication.dto';
+import {
+  CreatePublicationDto,
+  PublicationStatusDto,
+  PublicationVisibilityDto,
+  SectionDto,
+} from './dtos/publication.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { authGuard } from 'src/guards/auth.guard';
 
@@ -72,6 +80,84 @@ export class PublicationsController {
       req.user.id,
       sectionDto,
       files,
+    );
+  }
+
+  /**-----------------------------------------------
+ * @desc    get a single publication (for author) ->section+category
+ * @route   /publications/author/:id
+ * @method  GET
+ * @access  for authenticated user 
+ ------------------------------------------------*/
+  @Get('author/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a single publication (for author)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Publication retrieved successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getPublication(@Req() req, @Param('id') publicationId: string) {
+    return await this.publicationsService.getPublication(
+      req.user.id,
+      publicationId,
+    );
+  }
+
+  /**-----------------------------------------------
+ * @desc    change status of publication
+ * @route   /publications/author/status/:id
+ * @method  Patch
+ * @access  for authenticated user 
+ ------------------------------------------------*/
+  @Patch('author/status/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change status of publication' })
+  @ApiResponse({
+    status: 200,
+    description: 'Publication status changed successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({ type: PublicationStatusDto })
+  async changePublicationStatus(
+    @Req() req,
+    @Param('id') publicationId: string,
+    @Body() status: PublicationStatusDto,
+  ) {
+    return await this.publicationsService.changePublicationStatus(
+      req.user.id,
+      publicationId,
+      status,
+    );
+  }
+
+  /**-----------------------------------------------
+ * @desc    change visibility of publication
+ * @route   /publications/author/visibility/:id
+ * @method  Patch
+ * @access  for authenticated user 
+ ------------------------------------------------*/
+  @Patch('author/visibility/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change visibility of publication' })
+  @ApiResponse({
+    status: 200,
+    description: 'Publication visibility changed successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({ type: PublicationVisibilityDto })
+  async changePublicationVisibility(
+    @Req() req,
+    @Param('id') publicationId: string,
+    @Body() visibility: PublicationVisibilityDto,
+  ) {
+    return await this.publicationsService.changePublicationVisibility(
+      req.user.id,
+      publicationId,
+      visibility,
     );
   }
 }

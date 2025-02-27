@@ -8,7 +8,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiConsumes, ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SectionType, Visibility, PublicationStatus } from '@prisma/client';
 
 // export class ContentBlock {
@@ -206,159 +206,22 @@ export class UpdatePublicationDto {
   status?: PublicationStatus;
 }
 
-export class PublicationResponseDto {
+export class PublicationStatusDto {
+  @IsEnum(PublicationStatus)
   @ApiProperty({
-    description: 'Publication ID',
-    example: '60d21b4667d0d8992e610c85',
-  })
-  id: string;
-
-  @ApiProperty({
-    description: 'Publication title',
-    example: 'Advanced Research on Machine Learning Applications',
-  })
-  title: string;
-
-  @ApiProperty({
-    description: 'Publication abstract',
-    example:
-      'This research explores new applications of machine learning in healthcare...',
-  })
-  abstract: string;
-
-  @ApiProperty({
-    description: 'Publication sections',
-    type: [SectionDto],
-  })
-  sections: SectionDto[];
-
-  // @ApiProperty({
-  //   description: 'Files attached to the publication',
-  //   type: [FileDto],
-  // })
-  // files: FileDto[];
-
-  @ApiProperty({
-    description: 'Publication keywords',
-    example: ['machine learning', 'healthcare', 'neural networks'],
-  })
-  keywords: string[];
-
-  @ApiProperty({
-    description: 'Publication language',
-    example: 'en',
-  })
-  language: string;
-
-  @ApiProperty({
-    description: 'Publication status',
+    description: 'Status of publication',
     enum: PublicationStatus,
     example: 'PUBLISHED',
   })
-  status: PublicationStatus;
+  type: PublicationStatus;
+}
 
+export class PublicationVisibilityDto {
+  @IsEnum(Visibility)
   @ApiProperty({
-    description: 'Publication visibility',
+    description: 'Visibility of publication',
     enum: Visibility,
     example: 'PUBLIC',
   })
-  visibility: Visibility;
-
-  @ApiProperty({
-    description: 'View count',
-    example: 1250,
-  })
-  views: number;
-
-  @ApiProperty({
-    description: 'Citation count',
-    example: 25,
-  })
-  citations: number;
-
-  @ApiProperty({
-    description: 'Creation date',
-    example: '2023-05-15T10:30:00.000Z',
-  })
-  createdAt: Date;
-
-  @ApiProperty({
-    description: 'Last update date',
-    example: '2023-05-20T14:45:00.000Z',
-  })
-  updatedAt: Date;
-
-  @ApiProperty({
-    description: 'Author information',
-    example: {
-      id: '60d21b4667d0d8992e610c80',
-      email: 'researcher@example.com',
-      profile: {
-        firstName: 'John',
-        lastName: 'Smith',
-      },
-    },
-  })
-  author: {
-    id: string;
-    email: string;
-    profile?: {
-      firstName?: string;
-      lastName?: string;
-    };
-  };
-
-  @ApiProperty({
-    description: 'Category information',
-    example: {
-      id: '60d21b4667d0d8992e610c90',
-      name: 'Computer Science',
-    },
-  })
-  category: {
-    id: string;
-    name: string;
-  };
-}
-
-export class FileUploadResponseDto {
-  @ApiProperty({
-    description: 'URL to access the uploaded file',
-    example: 'https://cloudinary.com/example/file.pdf',
-  })
-  url: string;
-
-  @ApiProperty({
-    description: 'Original file name',
-    example: 'research_data.pdf',
-  })
-  originalName: string;
-
-  @ApiProperty({
-    description: 'MIME type',
-    example: 'application/pdf',
-  })
-  mimeType: string;
-
-  @ApiProperty({
-    description: 'File size in bytes',
-    example: 2048576,
-  })
-  size: number;
-}
-
-export class AddSectionDto {
-  @ApiProperty({
-    description: 'Section to add to the publication',
-    type: SectionDto,
-  })
-  section: SectionDto;
-}
-
-export class ReorderSectionsDto {
-  @ApiProperty({
-    description: 'Ordered array of section IDs',
-    example: ['60d21b4667d0d8992e610c85', '60d21b4667d0d8992e610c86'],
-  })
-  sectionIds: string[];
+  type: Visibility;
 }
