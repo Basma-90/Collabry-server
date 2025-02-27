@@ -121,7 +121,7 @@ export class AuthService {
   async requestPasswordReset(email: string) {
     const user = await this.getUserByEmail(email);
     if (!user) {
-      throw new Error('User not found');
+      throw new BadRequestException('User not found');
     }
     const token = await this.generatePasswordResetToken({ email: user.email });
     const resetLink = `${this.configService.get('passwordResetURL.URL')}?token=${token}`;
