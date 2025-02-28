@@ -7,434 +7,224 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  name      String?
-  password  String
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-   refreshToken String?
-   isEmailVerified Boolean? @default(false)
+model AIFeature {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId        Json?
 
-  // Relations
-  profile Profile?
-
-  token Token?
-
-  // Connections
-  publications        Publication[]
-  reviews             Review[]
-  comments            Comment[]
-  collaborations      Collaboration[]
-  bookmarks           Bookmark[]
-  notifications       Notification[]
-  rewards             Reward[]
-  hostedEvents        Event[]            @relation("EventHost")
-  eventParticipations EventParticipant[]
-  chatParticipations  ChatParticipant[]
-  aiFeatures          AIFeature[]
-  EventMessage        EventMessage[]
-  ChatMessage         ChatMessage[]
+  @@index([userId, publicationId])
 }
 
-model Profile {
-  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
-  user                 User     @relation(fields: [userId], references: [id])
-  userId               String   @unique @db.ObjectId
-  profileImageUrl      String
-  profileImagePublicId String
-  bio                  String?
-  linkedin             String?
-  expertise            String[]
-  languages            String[]
-  updatedAt            DateTime @updatedAt
-}
+model Bookmark {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId        Json?
 
-model Token {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  user          User     @relation(fields: [userId], references: [id])
-  userId        String   @unique @db.ObjectId
-  walletAddress String   @unique
-  tokenBalance  Float    @default(0)
-  reputation    Float    @default(0)
-  updatedAt     DateTime @updatedAt
-}
-
-model Publication {
-  id         String            @id @default(auto()) @map("_id") @db.ObjectId
-  title      String
-  abstract   String
-  content    String
-  keywords   String[]
-  language   String
-  status     PublicationStatus @default(DRAFT)
-  visibility Visibility        @default(PUBLIC)
-  views      Int               @default(0)
-  citations  Int               @default(0)
-  ipfsHash   String?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-
-  // Relations
-  author         User            @relation(fields: [authorId], references: [id])
-  authorId       String          @db.ObjectId
-  category       Category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  categoryId     String          @db.ObjectId
-  reviews        Review[]
-  comments       Comment[]
-  bookmarks      Bookmark[]
-  versions       Version[]
-  rewards        Reward[]
-  collaborations Collaboration[]
-  aiFeatures     AIFeature[]
-  Event          Event[]
-
-  @@index([authorId, categoryId])
+  @@index([userId, publicationId])
 }
 
 model Category {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  name         String        @unique
-  description  String
-  publications Publication[]
-  parentId     String?       @db.ObjectId
-  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children     Category[]    @relation("CategoryHierarchy")
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  description String
+  name        String @unique
+  /// Field referred in an index, but found no data to define the type.
+  parentId    Json?
 
   @@index([name, parentId])
 }
 
-model Review {
-  id        String       @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
-  rating    Float
-  status    ReviewStatus @default(PENDING)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  // Relations
-  reviewer      User        @relation(fields: [reviewerId], references: [id])
-  reviewerId    String      @db.ObjectId
-  publication   Publication @relation(fields: [publicationId], references: [id])
-  publicationId String      @db.ObjectId
-  rewards       Reward[]
-
-  @@index([reviewerId, publicationId])
-}
-
-model Comment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  author        User        @relation(fields: [authorId], references: [id])
-  authorId      String      @db.ObjectId
-  publication   Publication @relation(fields: [publicationId], references: [id])
-  publicationId String      @db.ObjectId
-  parentId      String?     @db.ObjectId
-  parent        Comment?    @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies       Comment[]   @relation("CommentReplies")
-
-  @@index([authorId, publicationId])
-}
-
-model Collaboration {
-  id        String              @id @default(auto()) @map("_id") @db.ObjectId
-  role      CollaboratorRole
-  status    CollaborationStatus @default(PENDING)
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-
-  // Relations
-  user          User        @relation(fields: [userId], references: [id])
-  userId        String      @db.ObjectId
-  publication   Publication @relation(fields: [publicationId], references: [id])
-  publicationId String      @db.ObjectId
-
-  @@index([userId, publicationId])
-}
-
-model Version {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  versionNumber Int
-  changes       Json
-  ipfsHash      String
-  createdAt     DateTime @default(now())
-
-  // Relations
-  publication   Publication @relation(fields: [publicationId], references: [id])
-  publicationId String      @db.ObjectId
-
-  @@index([publicationId])
-}
-
-model Reward {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  amount          Float
-  type            RewardType
-  status          RewardStatus @default(PENDING)
-  transactionHash String?
-  createdAt       DateTime     @default(now())
-
-  // Relations
-  user          User         @relation(fields: [userId], references: [id])
-  userId        String       @db.ObjectId
-  publication   Publication? @relation(fields: [publicationId], references: [id])
-  publicationId String?      @db.ObjectId
-  review        Review?      @relation(fields: [reviewId], references: [id])
-  reviewId      String?      @db.ObjectId
-
-  @@index([userId, publicationId, reviewId])
-}
-
-model Notification {
-  id        String           @id @default(auto()) @map("_id") @db.ObjectId
-  type      NotificationType
-  message   String
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @db.ObjectId
-
-  @@index([userId])
-}
-
-model Bookmark {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt DateTime @default(now())
-
-  // Relations
-  user          User        @relation(fields: [userId], references: [id])
-  userId        String      @db.ObjectId
-  publication   Publication @relation(fields: [publicationId], references: [id])
-  publicationId String      @db.ObjectId
-
-  @@index([userId, publicationId])
-}
-
-model Event {
-  id              String      @id @default(auto()) @map("_id") @db.ObjectId
-  title           String
-  description     String
-  startDate       DateTime
-  endDate         DateTime
-  type            EventType   @default(DISCUSSION)
-  status          EventStatus @default(UPCOMING)
-  maxParticipants Int?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-
-  // Relations
-  host          User               @relation("EventHost", fields: [hostId], references: [id])
-  hostId        String             @db.ObjectId
-  participants  EventParticipant[]
-  messages      EventMessage[]
-  publication   Publication?       @relation(fields: [publicationId], references: [id])
-  publicationId String?            @db.ObjectId
-
-  @@index([hostId, publicationId])
-}
-
-model EventParticipant {
-  id       String          @id @default(auto()) @map("_id") @db.ObjectId
-  role     ParticipantRole @default(ATTENDEE)
-  joinedAt DateTime        @default(now())
-
-  // Relations
-  user    User   @relation(fields: [userId], references: [id])
-  userId  String @db.ObjectId
-  event   Event  @relation(fields: [eventId], references: [id])
-  eventId String @db.ObjectId
-
-  @@index([userId, eventId])
-}
-
-model EventMessage {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  sender   User   @relation(fields: [senderId], references: [id])
-  senderId String @db.ObjectId
-  event    Event  @relation(fields: [eventId], references: [id])
-  eventId  String @db.ObjectId
-
-  @@index([senderId, eventId])
-}
-
 model Chat {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  type      ChatType @default(DIRECT)
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  participants ChatParticipant[]
-  messages     ChatMessage[]
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  name Json?
 
   @@index([name])
 }
 
-model ChatParticipant {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  role     ChatRole @default(MEMBER)
-  joinedAt DateTime @default(now())
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @db.ObjectId
-  chat   Chat   @relation(fields: [chatId], references: [id])
-  chatId String @db.ObjectId
-
-  @@index([userId, chatId])
-}
-
 model ChatMessage {
-  id        String      @id @default(auto()) @map("_id") @db.ObjectId
-  content   String
-  type      MessageType @default(TEXT)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  // Relations
-  sender   User   @relation(fields: [senderId], references: [id])
-  senderId String @db.ObjectId
-  chat     Chat   @relation(fields: [chatId], references: [id])
-  chatId   String @db.ObjectId
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  chatId   Json?
+  /// Field referred in an index, but found no data to define the type.
+  senderId Json?
 
   @@index([senderId, chatId])
 }
 
-model AIFeature {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  type          AIFeatureType
-  inputContent  String
-  outputContent String
-  metadata      Json?
-  createdAt     DateTime      @default(now())
+model ChatParticipant {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  chatId Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId Json?
 
-  // Relations
-  user          User         @relation(fields: [userId], references: [id])
-  userId        String       @db.ObjectId
-  publication   Publication? @relation(fields: [publicationId], references: [id])
-  publicationId String?      @db.ObjectId
+  @@index([userId, chatId])
+}
+
+model Collaboration {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId        Json?
 
   @@index([userId, publicationId])
 }
 
-// Enums (unchanged)
-enum UserRole {
-  USER
-  MODERATOR
-  ADMIN
+model Comment {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  authorId      Json?
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+
+  @@index([authorId, publicationId])
 }
 
-enum PublicationStatus {
-  DRAFT
-  UNDER_REVIEW
-  PUBLISHED
-  REJECTED
+model Event {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  hostId        Json?
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+
+  @@index([hostId, publicationId])
 }
 
-enum ReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
+model EventMessage {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  eventId  Json?
+  /// Field referred in an index, but found no data to define the type.
+  senderId Json?
+
+  @@index([senderId, eventId])
 }
 
-enum Visibility {
-  PUBLIC
-  PRIVATE
-  LIMITED
+model EventParticipant {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  eventId Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId  Json?
+
+  @@index([userId, eventId])
 }
 
-enum CollaboratorRole {
-  AUTHOR
-  EDITOR
-  REVIEWER
+model Notification {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  userId Json?
+
+  @@index([userId])
 }
 
-enum CollaborationStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
+model Publication {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  abstract   String
+  authorId   String   @db.ObjectId
+  categoryId String   @db.ObjectId
+  citations  BigInt
+  createdAt  DateTime @db.Date
+  keywords   String[]
+  language   String
+  status     String
+  title      String
+  updatedAt  DateTime @db.Date
+  views      BigInt
+  visibility String
+
+  @@index([authorId, categoryId])
 }
 
-enum RewardType {
-  PUBLICATION
-  REVIEW
-  CITATION
-  COLLABORATION
+model Review {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+  /// Field referred in an index, but found no data to define the type.
+  reviewerId    Json?
+
+  @@index([reviewerId, publicationId])
 }
 
-enum RewardStatus {
-  PENDING
-  PROCESSED
-  FAILED
+model Reward {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+  /// Field referred in an index, but found no data to define the type.
+  reviewId      Json?
+  /// Field referred in an index, but found no data to define the type.
+  userId        Json?
+
+  @@index([userId, publicationId, reviewId])
 }
 
-enum NotificationType {
-  REVIEW_REQUEST
-  COMMENT
-  COLLABORATION_INVITE
-  REWARD_EARNED
-  PUBLICATION_UPDATE
+model Section {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  content       String
+  createdAt     DateTime @db.Date
+  orderIndex    BigInt
+  publicationId String   @db.ObjectId
+  title         String
+  type          String
+  updatedAt     DateTime @db.Date
+
+  @@index([publicationId, orderIndex])
 }
 
-enum EventType {
-  DISCUSSION
-  WORKSHOP
-  QA_SESSION
-  PRESENTATION
+model SectionFile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @db.Date
+  publicId  String
+  sectionId String   @db.ObjectId
+  updatedAt DateTime @db.Date
+  url       String
+
+  @@index([sectionId])
 }
 
-enum EventStatus {
-  UPCOMING
-  ONGOING
-  COMPLETED
-  CANCELLED
+model Token {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  userId        Json?  @unique
+  /// Field referred in an index, but found no data to define the type.
+  walletAddress Json?  @unique
 }
 
-enum ParticipantRole {
-  HOST
-  MODERATOR
-  SPEAKER
-  ATTENDEE
+model Version {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  /// Field referred in an index, but found no data to define the type.
+  publicationId Json?
+
+  @@index([publicationId])
 }
 
-enum ChatType {
-  DIRECT
-  GROUP
-  CHANNEL
+model profiles {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  bio                  String
+  createdAt            DateTime @db.Date
+  expertise            String[]
+  firstName            String
+  languages            String[]
+  lastName             String
+  linkedin             String
+  profileImagePublicId String
+  profileImageUrl      String
+  updatedAt            DateTime @db.Date
+  userId               String   @unique @db.ObjectId
 }
 
-enum ChatRole {
-  ADMIN
-  MODERATOR
-  MEMBER
-}
-
-enum MessageType {
-  TEXT
-  FILE
-  IMAGE
-  LINK
-}
-
-enum AIFeatureType {
-  SUMMARY
-  TRANSLATION
-  RECOMMENDATION
-  CHATBOT
-  ANALYSIS
+model users {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt       DateTime @db.Date
+  email           String   @unique
+  isEmailVerified Boolean
+  password        String
+  refreshToken    String
+  role            String
+  updatedAt       DateTime @db.Date
 }
