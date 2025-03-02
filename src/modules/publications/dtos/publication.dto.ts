@@ -225,3 +225,34 @@ export class PublicationVisibilityDto {
   })
   type: Visibility;
 }
+
+export class UpdateSectionDto {
+  @IsString()
+  @ApiProperty({
+    description: 'Title of the section',
+    example: 'Research Methodology',
+  })
+  title: string;
+
+  @IsString()
+  @ApiProperty({
+    description: 'Order index for sorting sections',
+    example: '2',
+  })
+  orderIndex: string; // Keep as string in DTO definition
+
+  @IsEnum(SectionType)
+  @ApiProperty({
+    description: 'Type of section',
+    enum: SectionType,
+    example: 'TEXT',
+  })
+  type: SectionType;
+
+  @IsString()
+  @ApiProperty({
+    description: 'Content text',
+    example: 'This is a paragraph of text content.',
+  })
+  content: string;
+}
