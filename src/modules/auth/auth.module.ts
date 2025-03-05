@@ -12,19 +12,8 @@ import { ConfigModule } from '@nestjs/config';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'google' }),
-    JwtModule,
-    ConfigModule,
-  ],
-  providers: [
-    AuthService,
-    PrismaService,
-    JwtService,
-    ConfigService,
-    MailService,
-    GoogleStrategy,
-  ],
-  controllers: [AuthController],
+  imports: [PassportModule.register({defaultStrategy:'google'}), JwtModule, ConfigModule],
+  providers: [AuthService, PrismaService, JwtService, ConfigService, MailService, GoogleStrategy],
+  controllers: [AuthController]
 })
 export class AuthModule {}
