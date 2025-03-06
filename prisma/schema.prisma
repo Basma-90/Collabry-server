@@ -70,7 +70,6 @@ model Token {
   updatedAt     DateTime @updatedAt
 }
 
-// Enhanced Publication and related models
 model Publication {
   id         String            @id @default(auto()) @map("_id") @db.ObjectId
   title      String
