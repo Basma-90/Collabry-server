@@ -10,6 +10,7 @@ datasource db {
 model User {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   email           String   @unique
+  name            String?
   password        String
   role            UserRole @default(USER)
   createdAt       DateTime @default(now())
@@ -22,9 +23,11 @@ model User {
   token   Token?
 
   // Connections
-  publications        Publication[]
-  reviews             Review[]
-  comments            Comment[]
+  publications Publication[]
+  reviews      Review[]
+  comments     Comment[]
+  likes        Like[]
+
   collaborations      Collaboration[]
   bookmarks           Bookmark[]
   notifications       Notification[]
@@ -42,8 +45,6 @@ model User {
 model Profile {
   id                   String   @id @default(auto()) @map("_id") @db.ObjectId
   userId               String   @unique @db.ObjectId
-  firstName            String?
-  lastName             String?
   profileImageUrl      String?
   profileImagePublicId String?
   bio                  String?
@@ -86,12 +87,14 @@ model Publication {
   updatedAt  DateTime          @updatedAt
 
   // Relations
-  author         User            @relation(fields: [authorId], references: [id])
-  authorId       String          @db.ObjectId
-  category       Category        @relation(fields: [categoryId], references: [id])
-  categoryId     String          @db.ObjectId
-  reviews        Review[]
-  comments       Comment[]
+  author     User      @relation(fields: [authorId], references: [id])
+  authorId   String    @db.ObjectId
+  category   Category  @relation(fields: [categoryId], references: [id])
+  categoryId String    @db.ObjectId
+  reviews    Review[]
+  comments   Comment[]
+  likes      Like[]
+
   bookmarks      Bookmark[]
   versions       Version[]
   rewards        Reward[]
@@ -102,7 +105,6 @@ model Publication {
   @@index([authorId, categoryId])
 }
 
-// Section model for structured content
 model Section {
   id            String        @id @default(auto()) @map("_id") @db.ObjectId
   title         String
@@ -118,7 +120,6 @@ model Section {
   @@index([publicationId, orderIndex])
 }
 
-// New: Section-specific files
 model SectionFile {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   url       String
@@ -131,7 +132,6 @@ model SectionFile {
   @@index([sectionId])
 }
 
-// New enums
 enum SectionType {
   TEXT
   CODE
@@ -187,6 +187,21 @@ model Comment {
   replies       Comment[]   @relation("CommentReplies")
 
   @@index([authorId, publicationId])
+}
+
+model Like {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  publicationId String   @db.ObjectId
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publication Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  // Ensure a user can only like a publication once
+  @@unique([userId, publicationId])
+  @@map("likes")
 }
 
 model Collaboration {

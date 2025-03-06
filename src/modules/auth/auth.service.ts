@@ -60,7 +60,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, salt);
     const newUser = await this.prismaService.user.create({
       data: {
-        // name: name,
+        name: name,
         email: email,
         password: hashedPassword,
       },
@@ -78,7 +78,7 @@ export class AuthService {
     });
     await this.mailService.sendVerificationEmail(
       newUser.email,
-      newUser.email,
+      newUser.name,
       `${this.configService.get('emailVerificationURL.URL')}?token=${await this.generateEmailVerificationToken({ email: newUser.email })}`,
     );
     return {
@@ -113,7 +113,7 @@ export class AuthService {
     }
     const token = await this.generatePasswordResetToken({ email: user.email });
     const resetLink = `${this.configService.get('passwordResetURL.URL')}?token=${token}`;
-    this.mailService.sendResetPasswordEmail(user.email, user.email, resetLink);
+    this.mailService.sendResetPasswordEmail(user.email, user.name, resetLink);
     return 'Email sent';
   }
   async passwordReset(email: string, password: string, token: string) {
@@ -217,7 +217,7 @@ export class AuthService {
     }
     await this.mailService.sendVerificationEmail(
       user.email,
-      user.email,
+      user.name,
       `${this.configService.get('emailVerificationURL.URL')}?token=${await this.generateEmailVerificationToken({ email: user.email })}`,
     );
     return 'Email sent';
@@ -250,7 +250,7 @@ export class AuthService {
     if (!user) {
       const newUser = await this.prismaService.user.create({
         data: {
-          //   name: req.user.name,
+          name: req.user.name,
           email: req.user.email,
           password: await bcrypt.hash(req.user.id, 10),
           isEmailVerified: true,

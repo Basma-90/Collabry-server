@@ -15,8 +15,6 @@ export class ProfilesService {
   ) {}
 
   async getProfile(userId: string) {
-    // console.log(userId, 'getProfile');
-
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -24,11 +22,10 @@ export class ProfilesService {
       select: {
         id: true,
         email: true,
+        name: true,
         profile: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
             profileImageUrl: true,
             bio: true,
             linkedin: true,
@@ -44,9 +41,8 @@ export class ProfilesService {
     } else if (!user.profile) {
       return {
         email: user.email,
+        name: user.name,
         profile: {
-          firstName: '',
-          lastName: '',
           profileImageUrl: '',
           bio: '',
           linkedin: '',
@@ -57,9 +53,8 @@ export class ProfilesService {
     }
     return {
       email: user.email,
+      name: user.name,
       profile: {
-        firstName: user.profile.firstName || '',
-        lastName: user.profile.lastName || '',
         profileImageUrl: user.profile.profileImageUrl || '',
         bio: user.profile.bio || '',
         linkedin: user.profile.linkedin || '',
@@ -76,6 +71,7 @@ export class ProfilesService {
       },
       select: {
         id: true,
+        name: true,
         profile: true,
       },
     });
@@ -90,8 +86,7 @@ export class ProfilesService {
               id: userId,
             },
           },
-          firstName: profileDto.firstName,
-          lastName: profileDto.lastName,
+
           bio: profileDto.bio,
           linkedin: profileDto.linkedin,
           expertise: {
@@ -109,11 +104,9 @@ export class ProfilesService {
           id: userId,
         },
         data: {
+          name: profileDto.name,
           profile: {
             update: {
-              firstName: profileDto.firstName,
-              lastName: profileDto.lastName,
-
               bio: profileDto.bio,
               linkedin: profileDto.linkedin,
               expertise: {
