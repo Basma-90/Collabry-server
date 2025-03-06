@@ -15,7 +15,7 @@ export class BookmarkService {
             keywords: true,
             author: {
               select: {
-                // name: true,
+                name: true,
                 email: true,
                 profile: {
                   select: {

@@ -6,14 +6,18 @@ import { JwtModule } from '@nestjs/jwt';
 import passport from 'passport';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
 import { MailService } from 'src/modules/mail/mail.service';
-import { ConfigModule } from '@nestjs/config';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
-  imports: [PassportModule.register({defaultStrategy:'google'}), JwtModule, ConfigModule],
-  providers: [AuthService, PrismaService, JwtService, ConfigService, MailService, GoogleStrategy],
-  controllers: [AuthController]
+  imports: [PassportModule.register({ defaultStrategy: 'google' }), JwtModule],
+  providers: [
+    AuthService,
+    PrismaService,
+    JwtService,
+    MailService,
+    GoogleStrategy,
+  ],
+  controllers: [AuthController],
 })
 export class AuthModule {}

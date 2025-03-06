@@ -13,12 +13,13 @@ import { RewardsModule } from './modules/rewards/rewards.module';
 import { TokensModule } from './modules/tokens/tokens.module';
 import { UsersModule } from './modules/users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import configuration from 'config/configuration';
 import { MailModule } from './modules/mail/mail.module';
 import { join } from 'path';
 import { ProfilesModule } from './modules/profiles/profiles.module';
 import { PublicationsModule } from './modules/publications/publications.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { LikesModule } from './modules/likes/likes.module';
+import configuration from '../config/configuration';
 
 @Module({
   imports: [
@@ -42,7 +43,7 @@ import { PrismaModule } from './prisma/prisma.module';
       load: [configuration],
     }),
     MailModule,
-    ConfigModule,
+    LikesModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConfigService],

@@ -4,6 +4,6 @@ import { CollaborationsService } from './collaborations.service';
 
 @Module({
   controllers: [CollaborationsController],
-  providers: [CollaborationsService]
+  providers: [CollaborationsService],
 })
 export class CollaborationsModule {}
