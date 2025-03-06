@@ -31,10 +31,12 @@ export class CategoriesService {
     const { parentId, ...categoryData } = createCategoryDto;
 
     // Validate parent category if parentId is provided
-    if (!ObjectId.isValid(parentId)) {
-      throw new BadRequestException('Parent category ID is invalid');
-    }
+
     if (parentId) {
+      if (!ObjectId.isValid(parentId)) {
+        throw new BadRequestException('Parent category ID is invalid');
+      }
+
       const parentCategory = await this.prisma.category.findUnique({
         where: { id: parentId },
       });
