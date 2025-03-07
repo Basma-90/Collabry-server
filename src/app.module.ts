@@ -19,6 +19,7 @@ import { ProfilesModule } from './modules/profiles/profiles.module';
 import { PublicationsModule } from './modules/publications/publications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { LikesModule } from './modules/likes/likes.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import configuration from '../config/configuration';
 
 @Module({
@@ -44,6 +45,7 @@ import configuration from '../config/configuration';
     }),
     MailModule,
     LikesModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConfigService],
