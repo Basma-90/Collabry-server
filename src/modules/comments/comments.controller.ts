@@ -27,7 +27,7 @@ import { CreateCommentDto } from './dtos/createComment.dto';
 import { CommentResponseDto } from './dtos/CommentResponse.dto';
 import { CommentQueryDto } from './dtos/CommentQuery.dto';
 import { UpdateCommentDto } from './dtos/updateComment.dto';
-import { MongoIdValidationPipe } from 'src/common/pipes/mongo-id-validation.pipe';
+import { MongoIdValidationPipe } from '../../common/pipes/mongo-id-validation.pipe';
 
 @Controller('comments')
 export class CommentsController {
