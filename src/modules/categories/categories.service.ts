@@ -30,8 +30,6 @@ export class CategoriesService {
 
     const { parentId, ...categoryData } = createCategoryDto;
 
-    // Validate parent category if parentId is provided
-
     if (parentId) {
       if (!ObjectId.isValid(parentId)) {
         throw new BadRequestException('Parent category ID is invalid');

@@ -12,11 +12,15 @@ import { CollaborationStatus, CollaboratorRole } from '@prisma/client';
 import { CollaborationQueryDto } from './dtos/collaboration-query.dto';
 import { UpdateCollaborationDto } from './dtos/update-collaboration.dto';
 import { RequestContributionDto } from './dtos/request-contribution.dto.ts.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 @Injectable()
 export class CollaborationService {
   private readonly logger = new Logger(CollaborationService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationsService,
+  ) {}
   async createCollaboration(
     userId: string,
     createCollaborationDto: CreateCollaborationDto,
@@ -82,11 +86,14 @@ export class CollaborationService {
     });
 
     // Send notification to the invited user
-    // await this.notificationService.createNotification({
-    //   userId: createCollaborationDto.userId,
-    //   type: 'COLLABORATION_INVITE',
-    //   message: `You have been invited to collaborate on "${publication.title}" as a ${collaboration.role.toLowerCase()}`,
-    // });
+    await this.notificationService.createNotification({
+      userId: createCollaborationDto.userId,
+      type: 'COLLABORATION_INVITE',
+      message: `You have been invited to collaborate on "${publication.title}" as a ${collaboration.role.toLowerCase()}`,
+      important: true,
+      referenceId: publication.id,
+      referenceType: 'PUBLICATION',
+    });
 
     return {
       message: 'Collaboration invitation sent successfully',
@@ -115,7 +122,6 @@ export class CollaborationService {
       throw new ForbiddenException('You cannot update this collaboration');
     }
 
-    // Update the collaboration status
     const updatedCollaboration = await this.prisma.collaboration.update({
       where: { id: collaborationId },
       data: { status },
@@ -124,13 +130,6 @@ export class CollaborationService {
         publication: true,
       },
     });
-
-    // Notify the publication author about the status change
-    // await this.notificationService.createNotification({
-    //   userId: updatedCollaboration.publication.authorId,
-    //   type: 'COLLABORATION_UPDATE',
-    //   message: `Collaboration invitation for "${updatedCollaboration.publication.title}" was ${status.toLowerCase()} by ${updatedCollaboration.user.name || updatedCollaboration.user.email}`,
-    // });
 
     return {
       message: 'Collaboration status updated successfully',
@@ -512,11 +511,13 @@ export class CollaborationService {
     });
 
     // Send notification to the publication author
-    // await this.notificationService.createNotification({
-    //   userId: publication.authorId,
-    //   type: 'CONTRIBUTION_REQUEST',
-    //   message: `${collaboration.user.name || collaboration.user.email} has requested to contribute to "${publication.title}" as a ${collaboration.role.toLowerCase()}`,
-    // });
+    await this.notificationService.createNotification({
+      userId: publication.authorId,
+      type: 'CONTRIBUTION_REQUEST',
+      referenceType: 'publication',
+      referenceId: publication.id,
+      message: `${collaboration.user.name || collaboration.user.email} has requested to contribute to "${publication.title}" as a ${collaboration.role.toLowerCase()}`,
+    });
 
     return {
       message: 'Contribution request sent successfully',
@@ -565,11 +566,13 @@ export class CollaborationService {
     });
 
     // Notify the requester about the status change
-    // await this.notificationService.createNotification({
-    //   userId: updatedCollaboration.userId,
-    //   type: 'CONTRIBUTION_RESPONSE',
-    //   message: `Your request to contribute to "${updatedCollaboration.publication.title}" has been ${status.toLowerCase()}`,
-    // });
+    await this.notificationService.createNotification({
+      userId: updatedCollaboration.userId,
+      type: 'CONTRIBUTION_RESPONSE',
+      referenceType: 'publication',
+      referenceId: updatedCollaboration.id,
+      message: `Your request to contribute to "${updatedCollaboration.publication.title}" has been ${status.toLowerCase()}`,
+    });
 
     return {
       message: `Contribution request ${status.toLowerCase()} successfully`,
