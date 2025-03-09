@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import {
@@ -61,12 +62,16 @@ export class PublicationsService {
         publications: true,
       },
     });
+
     if (
       !user ||
       !user.publications.find((publication) => publication.id === publicationId)
     ) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(
+        'You do not have access to this publication',
+      );
     }
+
     const publication = await this.prisma.publication.findUnique({
       where: {
         id: publicationId,
@@ -76,10 +81,47 @@ export class PublicationsService {
           include: {
             files: true,
           },
+          orderBy: {
+            orderIndex: 'asc', // Order sections by their index
+          },
         },
         category: true,
+        author: {
+          select: {
+            email: true,
+            name: true,
+            id: true,
+          },
+        },
+        collaborations: {
+          select: {
+            id: true,
+            status: true,
+            user: {
+              select: {
+                email: true,
+                name: true,
+                role: true,
+                id: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    if (!publication) {
+      throw new NotFoundException('Publication not found');
+    }
+
+    const collaborators = publication.collaborations
+      .filter((collab) => collab.status === 'ACCEPTED')
+      .map((collab) => ({
+        id: collab.id,
+        user: collab.user,
+        status: collab.status,
+      }));
+
     return {
       id: publication.id,
       title: publication.title,
@@ -101,7 +143,12 @@ export class PublicationsService {
       })),
       categoryName: publication.category.name,
       categoryId: publication.category.id,
+      authorName: publication.author.name,
+      authorEmail: publication.author.email,
+      authorId: publication.author.id,
+      collaborators: collaborators,
       createdAt: publication.createdAt,
+      updatedAt: publication.updatedAt,
     };
   }
 
@@ -322,96 +369,6 @@ export class PublicationsService {
     return 'Publication visibility changed successfully';
   }
 
-  async getAllPublications() {
-    const publications = await this.prisma.publication.findMany({
-      where: {
-        visibility: 'PUBLIC',
-        status: 'PUBLISHED',
-      },
-      include: {
-        category: true,
-        author: true,
-        sections: {
-          include: {
-            files: true,
-          },
-        },
-      },
-    });
-
-    return publications.map((publication) => ({
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-      visibility: publication.visibility,
-      sections: publication.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        orderIndex: section.orderIndex,
-        type: section.type,
-        content: section.content,
-        files: section.files.map((file) => ({
-          id: file.id,
-          url: file.url,
-        })),
-      })),
-      categoryName: publication.category.name,
-      categoryId: publication.category.id,
-      authorName: publication.author.email,
-      authorId: publication.author.id,
-      createdAt: publication.createdAt,
-    }));
-  }
-
-  async getPublication(publicationId: string) {
-    const publication = await this.prisma.publication.findUnique({
-      where: {
-        id: publicationId,
-        visibility: 'PUBLIC',
-        status: 'PUBLISHED',
-      },
-      include: {
-        category: true,
-        author: true,
-        sections: {
-          include: {
-            files: true,
-          },
-        },
-      },
-    });
-
-    if (!publication) {
-      throw new UnauthorizedException();
-    }
-    return {
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-      visibility: publication.visibility,
-      sections: publication.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        orderIndex: section.orderIndex,
-        type: section.type,
-        content: section.content,
-        files: section.files.map((file) => ({
-          id: file.id,
-          url: file.url,
-        })),
-      })),
-      categoryName: publication.category.name,
-      categoryId: publication.category.id,
-      authorName: publication.author.email,
-      authorId: publication.author.id,
-      createdAt: publication.createdAt,
-    };
-  }
-
   // ------------------------------------------------
   async getSingleSection(userId: string, sectionId: string) {
     const user = await this.prisma.user.findUnique({
@@ -598,5 +555,132 @@ export class PublicationsService {
       },
     });
     return 'File deleted successfully';
+  }
+
+  async getAllPublications() {
+    const publications = await this.prisma.publication.findMany({
+      where: {
+        visibility: 'PUBLIC',
+        status: 'PUBLISHED',
+      },
+      include: {
+        category: true,
+        author: true,
+        sections: {
+          include: {
+            files: true,
+          },
+        },
+      },
+    });
+
+    return publications.map((publication) => ({
+      id: publication.id,
+      title: publication.title,
+      abstract: publication.abstract,
+      keywords: publication.keywords,
+      language: publication.language,
+      visibility: publication.visibility,
+      sections: publication.sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        orderIndex: section.orderIndex,
+        type: section.type,
+        content: section.content,
+        files: section.files.map((file) => ({
+          id: file.id,
+          url: file.url,
+        })),
+      })),
+      categoryName: publication.category.name,
+      categoryId: publication.category.id,
+      authorName: publication.author.email,
+      authorId: publication.author.id,
+      createdAt: publication.createdAt,
+    }));
+  }
+
+  async getPublication(publicationId: string) {
+    const publication = await this.prisma.publication.findUnique({
+      where: {
+        id: publicationId,
+        visibility: 'PUBLIC',
+        status: 'PUBLISHED',
+      },
+      include: {
+        sections: {
+          include: {
+            files: true,
+          },
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+        category: true,
+        author: {
+          select: {
+            email: true,
+            name: true,
+            id: true,
+          },
+        },
+        collaborations: {
+          where: {
+            status: 'ACCEPTED',
+          },
+          select: {
+            id: true,
+            status: true,
+            user: {
+              select: {
+                email: true,
+                name: true,
+                role: true,
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!publication) {
+      throw new NotFoundException('Publication not found or not accessible');
+    }
+
+    const collaborators = publication.collaborations.map((collab) => ({
+      id: collab.id,
+      user: collab.user,
+      status: collab.status,
+    }));
+
+    return {
+      id: publication.id,
+      title: publication.title,
+      abstract: publication.abstract,
+      keywords: publication.keywords,
+      language: publication.language,
+      visibility: publication.visibility,
+      status: publication.status,
+      sections: publication.sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        orderIndex: section.orderIndex,
+        type: section.type,
+        content: section.content,
+        files: section.files.map((file) => ({
+          id: file.id,
+          url: file.url,
+        })),
+      })),
+      categoryName: publication.category.name,
+      categoryId: publication.category.id,
+      authorName: publication.author.name,
+      authorEmail: publication.author.email,
+      authorId: publication.author.id,
+      collaborators: collaborators,
+      createdAt: publication.createdAt,
+      updatedAt: publication.updatedAt,
+    };
   }
 }

@@ -8,9 +8,11 @@ import { CloudinaryProvider } from '../../storage/cloudinary/cloudinary.provider
 import { AuthService } from '../auth/auth.service';
 import { MailService } from '../mail/mail.service';
 import { CollaborationService } from './collaborations.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationsModule],
   controllers: [CollaborationsController],
   providers: [
     CollaborationService,
@@ -20,6 +22,7 @@ import { CollaborationService } from './collaborations.service';
     CloudinaryProvider,
     AuthService,
     MailService,
+    NotificationsService,
   ],
 })
 export class CollaborationsModule {}
