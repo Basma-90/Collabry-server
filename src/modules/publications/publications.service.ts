@@ -52,51 +52,24 @@ export class PublicationsService {
     });
     return 'Publication created successfully';
   }
-
   async getSinglePublication(userId: string, publicationId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-
-    if (
-      !user ||
-      !user.publications.find((publication) => publication.id === publicationId)
-    ) {
-      throw new UnauthorizedException(
-        'You do not have access to this publication',
-      );
-    }
-
     const publication = await this.prisma.publication.findUnique({
       where: {
         id: publicationId,
       },
       include: {
-        sections: {
-          include: {
-            files: true,
-          },
-          orderBy: {
-            orderIndex: 'asc', // Order sections by their index
-          },
-        },
-        category: true,
         author: {
           select: {
+            id: true,
             email: true,
             name: true,
-            id: true,
           },
         },
         collaborations: {
           select: {
             id: true,
             status: true,
+            userId: true,
             user: {
               select: {
                 email: true,
@@ -107,11 +80,31 @@ export class PublicationsService {
             },
           },
         },
+        sections: {
+          include: {
+            files: true,
+          },
+          orderBy: {
+            orderIndex: 'asc', // Order sections by their index
+          },
+        },
+        category: true,
       },
     });
 
     if (!publication) {
       throw new NotFoundException('Publication not found');
+    }
+
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.some(
+      (collab) => collab.userId === userId && collab.status === 'ACCEPTED',
+    );
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have access to this publication',
+      );
     }
 
     const collaborators = publication.collaborations
@@ -151,20 +144,8 @@ export class PublicationsService {
       updatedAt: publication.updatedAt,
     };
   }
-
   async getAllPublicationsForUser(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-    if (!user) {
-      throw new UnauthorizedException();
-    }
-    const publications = await this.prisma.publication.findMany({
+    const authoredPublications = await this.prisma.publication.findMany({
       where: {
         authorId: userId,
       },
@@ -172,7 +153,35 @@ export class PublicationsService {
         category: true,
       },
     });
-    return publications.map((publication) => ({
+
+    const collaboratedPublications = await this.prisma.publication.findMany({
+      where: {
+        collaborations: {
+          some: {
+            userId: userId,
+            status: 'ACCEPTED',
+          },
+        },
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    // Combine the results (avoiding duplicates)
+    const allPublicationIds = new Set();
+    const allPublications = [];
+
+    [...authoredPublications, ...collaboratedPublications].forEach(
+      (publication) => {
+        if (!allPublicationIds.has(publication.id)) {
+          allPublicationIds.add(publication.id);
+          allPublications.push(publication);
+        }
+      },
+    );
+
+    return allPublications.map((publication) => ({
       id: publication.id,
       title: publication.title,
       abstract: publication.abstract,
@@ -192,24 +201,39 @@ export class PublicationsService {
     createPublicationDto: CreatePublicationDto,
   ) {
     const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
+      where: { id: userId },
     });
+
     if (!user) {
       throw new UnauthorizedException();
     }
+
     const publication = await this.prisma.publication.findUnique({
-      where: {
-        id: publicationId,
-      },
-      select: {
-        authorId: true,
+      where: { id: publicationId },
+      include: {
+        collaborations: {
+          where: {
+            userId: userId,
+            status: 'ACCEPTED',
+            role: { in: ['AUTHOR', 'EDITOR'] },
+          },
+        },
       },
     });
-    if (!publication || publication.authorId !== userId) {
-      throw new UnauthorizedException();
+
+    if (!publication) {
+      throw new NotFoundException('Publication not found');
     }
+
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to modify this publication',
+      );
+    }
+
     await this.prisma.publication.update({
       where: {
         id: publicationId,
@@ -222,6 +246,7 @@ export class PublicationsService {
         visibility: createPublicationDto.visibility,
       },
     });
+
     return 'Publication updated successfully';
   }
 
@@ -231,32 +256,40 @@ export class PublicationsService {
     files: Array<Express.Multer.File>,
   ) {
     const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
+      where: { id: userId },
     });
+
     if (!user) {
       throw new UnauthorizedException();
     }
 
     const publication = await this.prisma.publication.findUnique({
-      where: {
-        id: sectionDto.publicationId,
-      },
-      select: {
-        authorId: true,
+      where: { id: sectionDto.publicationId },
+      include: {
         sections: true,
+        collaborations: {
+          where: {
+            userId: userId,
+            status: 'ACCEPTED',
+            role: { in: ['AUTHOR', 'EDITOR'] },
+          },
+        },
       },
     });
 
-    if (!publication || publication.authorId !== userId) {
-      throw new UnauthorizedException();
+    if (!publication) {
+      throw new NotFoundException('Publication not found');
     }
 
-    // Check if a section with the same orderIndex already exists
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to add sections to this publication',
+      );
+    }
+
     const existingSectionWithSameOrder = publication.sections.find(
       (section) => section.orderIndex === parseInt(sectionDto.orderIndex),
     );
@@ -267,7 +300,6 @@ export class PublicationsService {
       );
     }
 
-    // Create the new section
     const section = await this.prisma.section.create({
       data: {
         title: sectionDto.title,
@@ -303,7 +335,7 @@ export class PublicationsService {
       }
     }
 
-    return 'section cerated successfully';
+    return 'Section created successfully';
   }
 
   async changePublicationStatus(
@@ -311,20 +343,30 @@ export class PublicationsService {
     publicationId: string,
     status: PublicationStatusDto,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
+    const publication = await this.prisma.publication.findUnique({
+      where: { id: publicationId },
+      include: {
+        collaborations: {
+          where: {
+            userId: userId,
+            status: 'ACCEPTED',
+            role: { in: ['AUTHOR', 'EDITOR'] },
+          },
+        },
       },
     });
 
-    if (
-      !user ||
-      !user.publications.find((publication) => publication.id === publicationId)
-    ) {
-      throw new UnauthorizedException();
+    if (!publication) {
+      throw new NotFoundException('Publication not found');
+    }
+
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to change the status of this publication',
+      );
     }
 
     await this.prisma.publication.update({
@@ -344,20 +386,32 @@ export class PublicationsService {
     publicationId: string,
     visibility: PublicationVisibilityDto,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
+    const publication = await this.prisma.publication.findUnique({
+      where: { id: publicationId },
+      include: {
+        collaborations: {
+          where: {
+            userId: userId,
+            status: 'ACCEPTED',
+            role: { in: ['AUTHOR', 'EDITOR'] },
+          },
+        },
       },
     });
-    if (
-      !user ||
-      !user.publications.find((publication) => publication.id === publicationId)
-    ) {
-      throw new UnauthorizedException();
+
+    if (!publication) {
+      throw new NotFoundException('Publication not found');
     }
+
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to change the visibility of this publication',
+      );
+    }
+
     await this.prisma.publication.update({
       where: {
         id: publicationId,
@@ -366,22 +420,13 @@ export class PublicationsService {
         visibility: visibility.type,
       },
     });
+
     return 'Publication visibility changed successfully';
   }
 
   // ------------------------------------------------
   async getSingleSection(userId: string, sectionId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-    if (!user) {
-      throw new UnauthorizedException();
-    }
+    // Check if section exists and get publication relationship data
     const section = await this.prisma.section.findUnique({
       where: {
         id: sectionId,
@@ -389,27 +434,41 @@ export class PublicationsService {
       include: {
         files: true,
         publication: {
-          select: {
-            id: true,
-            title: true,
+          include: {
+            collaborations: {
+              where: {
+                userId: userId,
+                status: 'ACCEPTED',
+              },
+              select: {
+                role: true,
+                status: true,
+              },
+            },
           },
         },
       },
     });
-    if (
-      !user.publications.find(
-        (publication) => publication.id === section.publicationId,
-      )
-    ) {
-      throw new UnauthorizedException();
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
     }
+
+    // Check access permissions (owner or any accepted collaborator)
+    const isOwner = section.publication.authorId === userId;
+    const isCollaborator = section.publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException('You do not have access to this section');
+    }
+
     return {
       id: section.id,
       title: section.title,
       orderIndex: section.orderIndex,
       type: section.type,
       content: section.content,
-      publicationId: section.publicationId,
+      publicationId: section.publication.id,
       publicationTitle: section.publication.title,
       files: section.files.map((file) => ({
         id: file.id,
@@ -423,32 +482,38 @@ export class PublicationsService {
     sectionId: string,
     sectionDto: SectionDto,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-    if (!user) {
-      throw new UnauthorizedException();
-    }
     const section = await this.prisma.section.findUnique({
       where: {
         id: sectionId,
       },
       include: {
         publication: {
-          select: {
-            authorId: true,
+          include: {
+            collaborations: {
+              where: {
+                userId: userId,
+                status: 'ACCEPTED',
+                role: { in: ['AUTHOR', 'EDITOR'] },
+              },
+            },
           },
         },
       },
     });
-    if (!section || section.publication.authorId !== userId) {
-      throw new UnauthorizedException();
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
     }
+
+    const isOwner = section.publication.authorId === userId;
+    const isCollaborator = section.publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to modify this section',
+      );
+    }
+
     await this.prisma.section.update({
       where: {
         id: sectionId,
@@ -460,6 +525,7 @@ export class PublicationsService {
         content: sectionDto.content,
       },
     });
+
     return 'Section updated successfully';
   }
 
@@ -468,32 +534,38 @@ export class PublicationsService {
     sectionId: string,
     file: Express.Multer.File,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-    if (!user) {
-      throw new UnauthorizedException();
-    }
     const section = await this.prisma.section.findUnique({
       where: {
         id: sectionId,
       },
       include: {
         publication: {
-          select: {
-            authorId: true,
+          include: {
+            collaborations: {
+              where: {
+                userId: userId,
+                status: 'ACCEPTED',
+                role: { in: ['AUTHOR', 'EDITOR'] },
+              },
+            },
           },
         },
       },
     });
-    if (!section || section.publication.authorId !== userId) {
-      throw new UnauthorizedException();
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
     }
+
+    const isOwner = section.publication.authorId === userId;
+    const isCollaborator = section.publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to add files to this section',
+      );
+    }
+
     if (file) {
       const buffer = await this.cloudinaryService.uploadFile(file);
       if (buffer) {
@@ -518,17 +590,6 @@ export class PublicationsService {
   }
 
   async deleteSectionFile(userId: string, fileId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        publications: true,
-      },
-    });
-    if (!user) {
-      throw new UnauthorizedException();
-    }
     const file = await this.prisma.sectionFile.findUnique({
       where: {
         id: fileId,
@@ -537,23 +598,41 @@ export class PublicationsService {
         section: {
           include: {
             publication: {
-              select: {
-                authorId: true,
+              include: {
+                collaborations: {
+                  where: {
+                    userId: userId,
+                    status: 'ACCEPTED',
+                    role: { in: ['AUTHOR', 'EDITOR'] },
+                  },
+                },
               },
             },
           },
         },
       },
     });
-    if (!file || file.section.publication.authorId !== userId) {
-      throw new UnauthorizedException();
+
+    if (!file) {
+      throw new NotFoundException('File not found');
     }
+
+    const isOwner = file.section.publication.authorId === userId;
+    const isCollaborator = file.section.publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to delete this file',
+      );
+    }
+
     await this.cloudinaryService.deleteFile(file.publicId);
     await this.prisma.sectionFile.delete({
       where: {
         id: fileId,
       },
     });
+
     return 'File deleted successfully';
   }
 
@@ -571,8 +650,33 @@ export class PublicationsService {
             files: true,
           },
         },
+        collaborations: {
+          where: {
+            status: 'ACCEPTED',
+          },
+          select: {
+            id: true,
+            status: true,
+            user: {
+              select: {
+                email: true,
+                name: true,
+                role: true,
+                id: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    const collaborators = publications.flatMap((publication) =>
+      publication.collaborations.map((collab) => ({
+        id: collab.id,
+        user: collab.user,
+        status: collab.status,
+      })),
+    );
 
     return publications.map((publication) => ({
       id: publication.id,
@@ -596,6 +700,7 @@ export class PublicationsService {
       categoryId: publication.category.id,
       authorName: publication.author.email,
       authorId: publication.author.id,
+      collaborators: collaborators,
       createdAt: publication.createdAt,
     }));
   }
