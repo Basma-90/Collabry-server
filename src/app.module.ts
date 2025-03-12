@@ -9,7 +9,6 @@ import { ChatModule } from './modules/chat/chat.module';
 import { CollaborationsModule } from './modules/collaborations/collaborations.module';
 import { EventsModule } from './modules/events/events.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { RewardsModule } from './modules/rewards/rewards.module';
 import { TokensModule } from './modules/tokens/tokens.module';
 import { UsersModule } from './modules/users/users.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -20,6 +19,7 @@ import { PublicationsModule } from './modules/publications/publications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { LikesModule } from './modules/likes/likes.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 import configuration from '../config/configuration';
 
 @Module({
@@ -35,7 +35,6 @@ import configuration from '../config/configuration';
     PrismaModule,
     ProfilesModule,
     PublicationsModule,
-    RewardsModule,
     TokensModule,
     UsersModule,
     ConfigModule.forRoot({
@@ -46,6 +45,7 @@ import configuration from '../config/configuration';
     MailModule,
     LikesModule,
     CommentsModule,
+    RewardsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConfigService],

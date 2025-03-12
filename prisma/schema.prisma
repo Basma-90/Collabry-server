@@ -19,25 +19,26 @@ model User {
   isEmailVerified Boolean? @default(false)
 
   // Relations
-  profile Profile?
-  token   Token?
+  profile              Profile?
+  token                Token?
+  sentTransactions     TokenTransaction[] @relation("SenderRelation")
+  receivedTransactions TokenTransaction[] @relation("RecipientRelation")
 
-  // Connections
-  publications Publication[]
-  reviews      Review[]
-  comments     Comment[]
-  likes        Like[]
-
+  publications        Publication[]
+  reviews             Review[]
+  comments            Comment[]
+  likes               Like[]
   collaborations      Collaboration[]
   bookmarks           Bookmark[]
   notifications       Notification[]
   rewards             Reward[]
-  hostedEvents        Event[]            @relation("EventHost")
+  hostedEvents        Event[]             @relation("EventHost")
   eventParticipations EventParticipant[]
   chatParticipations  ChatParticipant[]
   aiFeatures          AIFeature[]
-  EventMessage        EventMessage[]
-  ChatMessage         ChatMessage[]
+  eventMessages       EventMessage[]
+  chatMessages        ChatMessage[]
+  userTokens          UserTokenRelation[]
 
   @@map("users")
 }
@@ -54,7 +55,6 @@ model Profile {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("profiles")
@@ -62,19 +62,58 @@ model Profile {
 
 model Token {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  user          User     @relation(fields: [userId], references: [id])
   userId        String   @unique @db.ObjectId
-  walletAddress String   @unique
-  tokenBalance  Float    @default(0)
-  reputation    Float    @default(0)
+  tokenBalance  Float    @default(100)
+  reputation    Float    @default(10)
+  walletAddress String?
+  createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentTransactions     TokenTransaction[]  @relation("TokenSenderRelation")
+  receivedTransactions TokenTransaction[]  @relation("TokenRecipientRelation")
+  userTokens           UserTokenRelation[]
+
+  @@index([tokenBalance])
+  @@map("tokens")
+}
+
+model TokenTransaction {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderId    String   @db.ObjectId
+  recipientId String   @db.ObjectId
+  tokenId     String   @db.ObjectId
+  amount      Float
+  timestamp   DateTime @default(now())
+
+  sender          User  @relation("SenderRelation", fields: [senderId], references: [id])
+  recipient       User  @relation("RecipientRelation", fields: [recipientId], references: [id])
+  token           Token @relation("TokenSenderRelation", fields: [tokenId], references: [id])
+  recipient_token Token @relation("TokenRecipientRelation", fields: [tokenId], references: [id])
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([timestamp])
+  @@map("token_transactions")
+}
+
+model UserTokenRelation {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+  tokenId String @db.ObjectId
+
+  user  User  @relation(fields: [userId], references: [id])
+  token Token @relation(fields: [tokenId], references: [id])
+
+  @@index([userId, tokenId])
+  @@map("user_token_relations")
 }
 
 model Publication {
   id         String            @id @default(auto()) @map("_id") @db.ObjectId
   title      String
   abstract   String
-  sections   Section[] // New: Breaking content into sections
+  sections   Section[]
   keywords   String[]
   language   String
   status     PublicationStatus @default(DRAFT)
@@ -85,23 +124,22 @@ model Publication {
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
-  // Relations
-  author     User      @relation(fields: [authorId], references: [id])
-  authorId   String    @db.ObjectId
-  category   Category  @relation(fields: [categoryId], references: [id])
-  categoryId String    @db.ObjectId
-  reviews    Review[]
-  comments   Comment[]
-  likes      Like[]
-
+  author         User            @relation(fields: [authorId], references: [id])
+  authorId       String          @db.ObjectId
+  category       Category        @relation(fields: [categoryId], references: [id])
+  categoryId     String          @db.ObjectId
+  reviews        Review[]
+  comments       Comment[]
+  likes          Like[]
   bookmarks      Bookmark[]
   versions       Version[]
   rewards        Reward[]
   collaborations Collaboration[]
   aiFeatures     AIFeature[]
-  Event          Event[]
+  events         Event[]
 
   @@index([authorId, categoryId])
+  @@map("publications")
 }
 
 model Section {
@@ -117,6 +155,7 @@ model Section {
   updatedAt     DateTime      @updatedAt
 
   @@index([publicationId, orderIndex])
+  @@map("sections")
 }
 
 model SectionFile {
@@ -129,6 +168,7 @@ model SectionFile {
   updatedAt DateTime @updatedAt
 
   @@index([sectionId])
+  @@map("section_files")
 }
 
 enum SectionType {
@@ -150,6 +190,7 @@ model Category {
   children     Category[]    @relation("CategoryHierarchy")
 
   @@index([name, parentId])
+  @@map("categories")
 }
 
 model Review {
@@ -168,6 +209,7 @@ model Review {
   rewards       Reward[]
 
   @@index([reviewerId, publicationId])
+  @@map("reviews")
 }
 
 model Comment {
@@ -186,6 +228,7 @@ model Comment {
   replies       Comment[]   @relation("CommentReplies")
 
   @@index([authorId, publicationId])
+  @@map("comments")
 }
 
 model Like {
@@ -224,6 +267,7 @@ model Collaboration {
   publicationId String      @db.ObjectId
 
   @@index([userId, publicationId])
+  @@map("collaborations")
 }
 
 model Version {
@@ -238,6 +282,7 @@ model Version {
   publicationId String      @db.ObjectId
 
   @@index([publicationId])
+  @@map("versions")
 }
 
 model Reward {
@@ -257,6 +302,7 @@ model Reward {
   reviewId      String?      @db.ObjectId
 
   @@index([userId, publicationId, reviewId])
+  @@map("rewards")
 }
 
 model Notification {
@@ -282,6 +328,7 @@ model Notification {
   @@index([read])
   @@index([type])
   @@index([createdAt])
+  @@map("notifications")
 }
 
 model Bookmark {
@@ -295,6 +342,7 @@ model Bookmark {
   publicationId String      @db.ObjectId
 
   @@index([userId, publicationId])
+  @@map("bookmarks")
 }
 
 model Event {
@@ -318,6 +366,7 @@ model Event {
   publicationId String?            @db.ObjectId
 
   @@index([hostId, publicationId])
+  @@map("events")
 }
 
 model EventParticipant {
@@ -332,6 +381,7 @@ model EventParticipant {
   eventId String @db.ObjectId
 
   @@index([userId, eventId])
+  @@map("event_participants")
 }
 
 model EventMessage {
@@ -347,6 +397,7 @@ model EventMessage {
   eventId  String @db.ObjectId
 
   @@index([senderId, eventId])
+  @@map("event_messages")
 }
 
 model Chat {
@@ -361,6 +412,7 @@ model Chat {
   messages     ChatMessage[]
 
   @@index([name])
+  @@map("chats")
 }
 
 model ChatParticipant {
@@ -375,6 +427,7 @@ model ChatParticipant {
   chatId String @db.ObjectId
 
   @@index([userId, chatId])
+  @@map("chat_participants")
 }
 
 model ChatMessage {
