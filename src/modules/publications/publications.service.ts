@@ -29,7 +29,7 @@ export class PublicationsService {
       },
     });
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User not found');
     }
     const category = await this.prisma.category.findUnique({
       where: {
@@ -37,7 +37,7 @@ export class PublicationsService {
       },
     });
     if (!category) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Category not found');
     }
     await this.prisma.publication.create({
       data: {
