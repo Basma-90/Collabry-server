@@ -3,7 +3,7 @@ import { ProfilesController } from './profiles.controller';
 import { ProfilesService } from './profiles.service';
 import { UpdateProfileDto } from './dtos/UpdateProfile.dto';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
-
+import { authGuard } from '../../guards/auth.guard';
 describe('ProfilesController', () => {
   let controller: ProfilesController;
   let service: ProfilesService;
@@ -56,7 +56,12 @@ describe('ProfilesController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(authGuard)
+      .useValue({
+        canActivate: jest.fn(() => true),
+      })
+      .compile();
 
     controller = module.get<ProfilesController>(ProfilesController);
     service = module.get<ProfilesService>(ProfilesService);
@@ -67,7 +72,7 @@ describe('ProfilesController', () => {
   });
 
   describe('getProfile', () => {
-    it('should return user profile', async () => {
+    it('should return user profile when user exists', async () => {
       jest.spyOn(service, 'getProfile').mockResolvedValue(mockProfileData);
 
       const result = await controller.getProfile(mockRequest);
@@ -76,7 +81,7 @@ describe('ProfilesController', () => {
       expect(result).toEqual(mockProfileData);
     });
 
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest
         .spyOn(service, 'getProfile')
         .mockRejectedValue(new UnauthorizedException());
@@ -89,7 +94,7 @@ describe('ProfilesController', () => {
   });
 
   describe('updateProfile', () => {
-    it('should update user profile successfully', async () => {
+    it('should return success message when profile is updated', async () => {
       const successMessage = 'user profile updated successfully';
       jest.spyOn(service, 'updateProfile').mockResolvedValue(successMessage);
 
@@ -105,7 +110,7 @@ describe('ProfilesController', () => {
       expect(result).toEqual(successMessage);
     });
 
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest
         .spyOn(service, 'updateProfile')
         .mockRejectedValue(new UnauthorizedException());
@@ -118,10 +123,25 @@ describe('ProfilesController', () => {
         mockUpdateProfileDto,
       );
     });
+
+    it('should throw BadRequestException when profile data is invalid', async () => {
+      const invalidDto = { ...mockUpdateProfileDto, linkedin: 'invalid-url' };
+      jest
+        .spyOn(service, 'updateProfile')
+        .mockRejectedValue(new BadRequestException('Invalid profile data'));
+
+      await expect(
+        controller.updateProfile(mockRequest, invalidDto),
+      ).rejects.toThrow(BadRequestException);
+      expect(service.updateProfile).toHaveBeenCalledWith(
+        mockRequest.user.id,
+        invalidDto,
+      );
+    });
   });
 
   describe('updateProfileImage', () => {
-    it('should update profile image successfully', async () => {
+    it('should return success message when profile image is updated', async () => {
       const successMessage = 'user profile image updated';
       jest
         .spyOn(service, 'updateProfileImage')
@@ -136,7 +156,7 @@ describe('ProfilesController', () => {
       expect(result).toEqual(successMessage);
     });
 
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest
         .spyOn(service, 'updateProfileImage')
         .mockRejectedValue(new UnauthorizedException());
@@ -150,7 +170,7 @@ describe('ProfilesController', () => {
       );
     });
 
-    it('should throw BadRequestException when image upload fails', async () => {
+    it('should throw BadRequestException when file upload fails', async () => {
       jest
         .spyOn(service, 'updateProfileImage')
         .mockRejectedValue(new BadRequestException('Image upload failed'));
@@ -161,6 +181,20 @@ describe('ProfilesController', () => {
       expect(service.updateProfileImage).toHaveBeenCalledWith(
         mockRequest.user.id,
         mockFile,
+      );
+    });
+
+    it('should throw BadRequestException when no file is provided', async () => {
+      jest
+        .spyOn(service, 'updateProfileImage')
+        .mockRejectedValue(new BadRequestException('No file provided'));
+
+      await expect(
+        controller.updateProfileImage(mockRequest, null),
+      ).rejects.toThrow(BadRequestException);
+      expect(service.updateProfileImage).toHaveBeenCalledWith(
+        mockRequest.user.id,
+        null,
       );
     });
   });

@@ -8,7 +8,7 @@ import * as jwt from 'jsonwebtoken';
 import { MailService } from '../mail/mail.service';
 import { session } from 'passport';
 import { config } from 'dotenv';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 config();
 
 @Injectable()

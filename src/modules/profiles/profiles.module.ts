@@ -6,8 +6,9 @@ import { CloudinaryProvider } from '../../storage/cloudinary/cloudinary.provider
 import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
 import { AuthService } from '../auth/auth.service';
 import { MailModule } from '../mail/mail.module';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { MailService } from '../mail/mail.service';
 
 @Module({
   imports: [PrismaModule, MailModule],
@@ -15,12 +16,12 @@ import { PrismaModule } from 'src/prisma/prisma.module';
   controllers: [ProfilesController],
   providers: [
     ProfilesService,
-
     PrismaService,
     JwtService,
     CloudinaryService,
     CloudinaryProvider,
     AuthService,
+    MailService,
   ],
 })
 export class ProfilesModule {}

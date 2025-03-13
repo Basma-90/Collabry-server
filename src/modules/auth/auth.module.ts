@@ -5,8 +5,8 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import passport from 'passport';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { MailService } from 'src/modules/mail/mail.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../../modules/mail/mail.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
