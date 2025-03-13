@@ -10,8 +10,8 @@ import {
   PublicationVisibilityDto,
   SectionDto,
 } from './dtos/publication.dto';
-import { CloudinaryService } from 'src/storage/cloudinary/cloudinary.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class PublicationsService {

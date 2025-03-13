@@ -10,9 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
-import { authGuard } from 'src/guards/auth.guard';
+import { authGuard } from '../../guards/auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { RolesGuard } from '../..//guards/roles.guard';
 import { CreateCategoryDto } from './dtos/createCategory.dto';
 import { Request } from 'express';
 
@@ -122,17 +122,17 @@ export class CategoriesController {
   async getAllCategories() {
     return await this.categoriesService.getAllCategories();
   }
-
-  /**-----------------------------------------------
- * @desc    get a category tree
- * @route   /categories/tree
- * @method  Get
- * @access  public
-// //  ------------------------------------------------*/
-  //   @Get('tree')
-  //   @ApiOperation({ summary: 'Get a category tree' })
-  //   @ApiResponse({ status: 200, description: 'Category tree found' })
-  //   async getCategoryTree() {
-  //     return await this.categoriesService.getCategoryTree();
-  //   }
 }
+
+//   /**-----------------------------------------------
+//  * @desc    get a category tree
+//  * @route   /categories/tree
+//  * @method  Get
+//  * @access  public
+//   ------------------------------------------------*/
+//   @Get('tree')
+//   @ApiOperation({ summary: 'Get a category tree' })
+//   @ApiResponse({ status: 200, description: 'Category tree found' })
+//   async getCategoryTree() {
+//     return await this.categoriesService.getCategoryTree();
+//   }

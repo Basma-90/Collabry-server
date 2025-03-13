@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -8,7 +8,7 @@ import * as jwt from 'jsonwebtoken';
 import { MailService } from '../mail/mail.service';
 import { session } from 'passport';
 import { config } from 'dotenv';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 config();
 
 @Injectable()
@@ -149,7 +149,7 @@ export class AuthService {
   }
   async getUserById(userId: string) {
     if (!userId) {
-      throw new UnauthorizedException('User not found');
+      throw new Error('User not found');
     }
     return await this.prismaService.user.findUnique({
       where: {

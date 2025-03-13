@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../mail/mail.service';
 import { access } from 'fs';
-import { PrismaService } from '../../prisma/prisma.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -67,7 +67,7 @@ describe('AuthController', () => {
     jest.spyOn(authService, 'register').mockResolvedValue(mockResponse);
     const result = await controller.Register(mockUser);
 
-    expect(result).toEqual(mockResponse);
+    expect(result).toEqual(mockResponse); 
     expect(authService.register).toHaveBeenCalledWith(
       mockUser.name,
       mockUser.email,
@@ -99,9 +99,7 @@ describe('AuthController', () => {
     };
 
     const mockResponse = 'Email sent';
-    jest
-      .spyOn(authService, 'sendVerificationEmail')
-      .mockResolvedValue(mockResponse);
+    jest.spyOn(authService, 'sendVerificationEmail').mockResolvedValue(mockResponse);
     const result = await controller.sendEmail(mockEmail);
     expect(result).toEqual(mockResponse);
   });
@@ -124,9 +122,7 @@ describe('AuthController', () => {
       email: 'email@example.com',
     };
     const mockResponse = 'Email sent';
-    jest
-      .spyOn(authService, 'requestPasswordReset')
-      .mockResolvedValue(mockResponse);
+    jest.spyOn(authService,'requestPasswordReset').mockResolvedValue(mockResponse);
     const result = await controller.requestPasswordReset(mockEmail);
     expect(result).toEqual(mockResponse);
   });
@@ -164,4 +160,7 @@ describe('AuthController', () => {
     const result = await controller.logout(mockAuthHeader);
     expect(result).toEqual(mockResponse);
   });
+  
+  
+
 });

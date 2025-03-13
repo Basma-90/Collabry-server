@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
 import { CloudinaryProvider } from '../../storage/cloudinary/cloudinary.provider';
