@@ -29,7 +29,7 @@ import {
   UpdateSectionDto,
 } from './dtos/publication.dto';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { authGuard } from 'src/guards/auth.guard';
+import { authGuard } from '../../guards/auth.guard';
 
 @Controller('publications')
 export class PublicationsController {

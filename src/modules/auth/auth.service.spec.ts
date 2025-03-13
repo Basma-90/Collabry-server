@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../mail/mail.service';
 import { send } from 'process';
 import { verify } from 'jsonwebtoken';
-import { PrismaService } from 'src/prisma/prisma.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -48,7 +48,7 @@ describe('AuthService', () => {
           useValue: {
             getUserByEmail: jest.fn(),
           },
-        },
+        }
       ],
     }).compile();
 
@@ -58,4 +58,5 @@ describe('AuthService', () => {
     const configService = module.get<ConfigService>(ConfigService);
     const mailService = module.get<MailService>(MailService);
   });
+
 });
