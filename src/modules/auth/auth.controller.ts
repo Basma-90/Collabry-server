@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { query } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { authGuard } from 'src/guards/auth.guard';
+import { authGuard } from '../../guards/auth.guard';
 import { Logger } from '@nestjs/common';
 
 @ApiTags('auth')
