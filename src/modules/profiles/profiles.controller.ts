@@ -19,7 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { UpdateProfileDto } from './dtos/UpdateProfile.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { authGuard } from 'src/guards/auth.guard';
+import { authGuard } from '../../guards/auth.guard';
 
 @Controller('profiles')
 export class ProfilesController {

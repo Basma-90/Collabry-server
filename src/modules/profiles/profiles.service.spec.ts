@@ -1,36 +1,47 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProfilesService } from './profiles.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CloudinaryService } from 'src/storage/cloudinary/cloudinary.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
 import { UpdateProfileDto } from './dtos/UpdateProfile.dto';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 
 describe('ProfilesService', () => {
   let service: ProfilesService;
   let prismaService: PrismaService;
   let cloudinaryService: CloudinaryService;
 
-  const mockUserId = 'user-123';
-
-  const mockUser = {
-    id: mockUserId,
+  const mockUserWithProfile = {
+    id: 'user-123',
     email: 'test@example.com',
     name: 'Test User',
+    password: 'hashed-password',
+    role: UserRole.USER,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    refreshToken: 'refresh-token',
+    isEmailVerified: true,
     profile: {
       id: 'profile-123',
       profileImageUrl: 'http://example.com/image.jpg',
-      profileImagePublicId: 'public_id_123',
       bio: 'Test bio',
       linkedin: 'https://linkedin.com/in/testuser',
       expertise: ['JavaScript', 'Node.js'],
       languages: ['English', 'Spanish'],
+      profileImagePublicId: 'public-id-123',
     },
   };
 
   const mockUserWithoutProfile = {
-    id: mockUserId,
+    id: 'user-123',
     email: 'test@example.com',
     name: 'Test User',
+    password: 'hashed-password',
+    role: UserRole.USER,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    refreshToken: 'refresh-token',
+    isEmailVerified: true,
     profile: null,
   };
 
@@ -52,8 +63,11 @@ describe('ProfilesService', () => {
   } as Express.Multer.File;
 
   const mockCloudinaryResponse = {
-    url: 'http://example.com/updated-image.jpg',
-    public_id: 'public_id_456',
+    url: 'new-url',
+    public_id: 'new-public-id',
+    message: '',
+    name: '',
+    http_code: 200,
   };
 
   beforeEach(async () => {
@@ -92,13 +106,15 @@ describe('ProfilesService', () => {
   });
 
   describe('getProfile', () => {
-    it('should return user profile when profile exists', async () => {
-      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser);
+    it('should return user profile when user and profile exist', async () => {
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUserWithProfile);
 
-      const result = await service.getProfile(mockUserId);
+      const result = await service.getProfile('user-123');
 
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: mockUserId },
+        where: { id: 'user-123' },
         select: {
           id: true,
           email: true,
@@ -115,30 +131,47 @@ describe('ProfilesService', () => {
           },
         },
       });
-
       expect(result).toEqual({
-        email: mockUser.email,
-        name: mockUser.name,
+        email: 'test@example.com',
+        name: 'Test User',
         profile: {
-          profileImageUrl: mockUser.profile.profileImageUrl,
-          bio: mockUser.profile.bio,
-          linkedin: mockUser.profile.linkedin,
-          expertise: mockUser.profile.expertise,
-          languages: mockUser.profile.languages,
+          profileImageUrl: 'http://example.com/image.jpg',
+          bio: 'Test bio',
+          linkedin: 'https://linkedin.com/in/testuser',
+          expertise: ['JavaScript', 'Node.js'],
+          languages: ['English', 'Spanish'],
         },
       });
     });
 
-    it('should return user with empty profile when profile does not exist', async () => {
+    it('should return default profile when user exists but profile does not', async () => {
       jest
         .spyOn(prismaService.user, 'findUnique')
         .mockResolvedValue(mockUserWithoutProfile);
 
-      const result = await service.getProfile(mockUserId);
+      const result = await service.getProfile('user-123');
 
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          profile: {
+            select: {
+              id: true,
+              profileImageUrl: true,
+              bio: true,
+              linkedin: true,
+              expertise: true,
+              languages: true,
+            },
+          },
+        },
+      });
       expect(result).toEqual({
-        email: mockUserWithoutProfile.email,
-        name: mockUserWithoutProfile.name,
+        email: 'test@example.com',
+        name: 'Test User',
         profile: {
           profileImageUrl: '',
           bio: '',
@@ -149,164 +182,160 @@ describe('ProfilesService', () => {
       });
     });
 
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
-      await expect(service.getProfile(mockUserId)).rejects.toThrow(
+      await expect(service.getProfile('user-123')).rejects.toThrow(
         UnauthorizedException,
       );
     });
   });
 
   describe('updateProfile', () => {
-    it('should create profile when it does not exist', async () => {
-      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-        id: mockUserId,
-        name: 'Test User',
-        profile: null,
-      });
-
+    it('should create profile and return success message when profile does not exist', async () => {
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUserWithoutProfile);
       jest.spyOn(prismaService.profile, 'create').mockResolvedValue({} as any);
 
       const result = await service.updateProfile(
-        mockUserId,
+        'user-123',
         mockUpdateProfileDto,
       );
 
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        select: {
+          id: true,
+          name: true,
+          profile: true,
+        },
+      });
       expect(prismaService.profile.create).toHaveBeenCalledWith({
         data: {
           user: {
             connect: {
-              id: mockUserId,
+              id: 'user-123',
             },
           },
-          bio: mockUpdateProfileDto.bio,
-          linkedin: mockUpdateProfileDto.linkedin,
+          bio: 'Updated bio',
+          linkedin: 'https://linkedin.com/in/updateduser',
           expertise: {
-            set: mockUpdateProfileDto.expertise,
+            set: ['TypeScript', 'NestJS'],
           },
           languages: {
-            set: mockUpdateProfileDto.languages,
+            set: ['English', 'French'],
           },
         },
       });
-
       expect(result).toEqual('user profile updated successfully');
     });
 
-    it('should update profile when it exists', async () => {
-      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-        id: mockUserId,
-        name: 'Test User',
-        profile: {
-          id: 'profile-123',
-        },
-      });
-
+    it('should update profile and return success message when profile exists', async () => {
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUserWithProfile);
       jest.spyOn(prismaService.user, 'update').mockResolvedValue({} as any);
 
       const result = await service.updateProfile(
-        mockUserId,
+        'user-123',
         mockUpdateProfileDto,
       );
 
-      expect(prismaService.user.update).toHaveBeenCalledWith({
-        where: {
-          id: mockUserId,
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        select: {
+          id: true,
+          name: true,
+          profile: true,
         },
+      });
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
         data: {
-          name: mockUpdateProfileDto.name,
+          name: 'Updated Name',
           profile: {
             update: {
-              bio: mockUpdateProfileDto.bio,
-              linkedin: mockUpdateProfileDto.linkedin,
+              bio: 'Updated bio',
+              linkedin: 'https://linkedin.com/in/updateduser',
               expertise: {
-                set: mockUpdateProfileDto.expertise,
+                set: ['TypeScript', 'NestJS'],
               },
               languages: {
-                set: mockUpdateProfileDto.languages,
+                set: ['English', 'French'],
               },
             },
           },
         },
       });
-
       expect(result).toEqual('user profile updated successfully');
     });
 
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.updateProfile(mockUserId, mockUpdateProfileDto),
+        service.updateProfile('user-123', mockUpdateProfileDto),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('updateProfileImage', () => {
-    it('should update profile image and delete old image if it exists', async () => {
-      // Fix: Include proper profile structure with both properties
-      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-        id: mockUserId,
-        profile: {
-          profileImageUrl: 'http://example.com/old-image.jpg',
-          profileImagePublicId: 'old_public_id',
-        },
-      });
-
+    it('should update profile image and return success message', async () => {
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUserWithProfile);
       jest
         .spyOn(cloudinaryService, 'uploadFile')
         .mockResolvedValue(mockCloudinaryResponse);
-      jest.spyOn(cloudinaryService, 'deleteFile').mockResolvedValue(undefined);
+      jest
+        .spyOn(cloudinaryService, 'deleteFile')
+        .mockResolvedValue(mockCloudinaryResponse);
       jest.spyOn(prismaService.user, 'update').mockResolvedValue({} as any);
 
-      const result = await service.updateProfileImage(mockUserId, mockFile);
+      const result = await service.updateProfileImage('user-123', mockFile);
 
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        select: {
+          profile: true,
+        },
+      });
       expect(cloudinaryService.uploadFile).toHaveBeenCalledWith(mockFile);
       expect(cloudinaryService.deleteFile).toHaveBeenCalledWith(
-        'old_public_id',
+        'public-id-123',
       );
       expect(prismaService.user.update).toHaveBeenCalledWith({
-        where: {
-          id: mockUserId,
-        },
+        where: { id: 'user-123' },
         data: {
           profile: {
             update: {
-              profileImageUrl: mockCloudinaryResponse.url,
-              profileImagePublicId: mockCloudinaryResponse.public_id,
+              profileImageUrl: 'new-url',
+              profileImagePublicId: 'new-public-id',
             },
           },
         },
       });
-
       expect(result).toEqual('user profile image updated');
     });
 
-    it('should throw BadRequestException when image upload fails', async () => {
-      // Fix: Include user ID and proper profile structure
-      jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue({
-        id: mockUserId,
-        profile: {
-          profileImageUrl: null,
-          profileImagePublicId: null,
-        },
-      });
-
-      jest.spyOn(cloudinaryService, 'uploadFile').mockResolvedValue(null);
-
-      await expect(
-        service.updateProfileImage(mockUserId, mockFile),
-      ).rejects.toThrow(BadRequestException);
-      expect(cloudinaryService.uploadFile).toHaveBeenCalledWith(mockFile);
-    });
-
-    it('should throw UnauthorizedException when user not found', async () => {
+    it('should throw UnauthorizedException when user does not exist', async () => {
       jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
       await expect(
-        service.updateProfileImage(mockUserId, mockFile),
+        service.updateProfileImage('user-123', mockFile),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw BadRequestException when image upload fails', async () => {
+      jest
+        .spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUserWithProfile);
+      jest.spyOn(cloudinaryService, 'uploadFile').mockResolvedValue(null);
+
+      await expect(
+        service.updateProfileImage('user-123', mockFile),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });
