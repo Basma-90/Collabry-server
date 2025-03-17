@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Post,
-  Query,
   Headers,
   Request,
   UseGuards,
@@ -16,15 +15,17 @@ import {
   PasswordResetDto,
   RefreshTokenDto,
   RegisterDto,
-  RequestPasswordResetDto,
-  SendVerificationEmailDto,
+  sendOtpDto,
+  VerifyEmailDto,
+  VerifyOtplDto
 } from './dto/auth.dto';
 import { ConfigService } from '@nestjs/config';
-import { query } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiHeaders, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { authGuard } from '../../guards/auth.guard';
 import { Logger } from '@nestjs/common';
+
+const OTP_EXPIRATION_TIME = 10 * 60 * 1000;
 
 @ApiTags('auth')
 @Controller('auth')
@@ -33,7 +34,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     configService: ConfigService,
-  ) {}
+  ) { }
 
   @Post('/login')
   @ApiOperation({ summary: 'Login' })
@@ -95,22 +96,6 @@ export class AuthController {
     }
   }
 
-  @Post('/send-verification-email')
-  @ApiOperation({ summary: 'Send Verification Email' })
-  @ApiResponse({ status: 200, description: 'Email sent' })
-  @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiBody({ type: SendVerificationEmailDto })
-  async sendEmail(@Body() body: SendVerificationEmailDto) {
-    try {
-      return await this.authService.sendVerificationEmail(body.email);
-    } catch (error) {
-      this.logger.error('Send verification email failed', error.stack);
-      throw new BadRequestException(
-        error.response?.data?.message || 'Failed to send verification email',
-      );
-    }
-  }
-
   @Post('/refresh-token')
   @ApiOperation({ summary: 'Refresh Token' })
   @ApiResponse({
@@ -134,18 +119,50 @@ export class AuthController {
     }
   }
 
-  @Post('/request-password-reset')
-  @ApiOperation({ summary: 'Request Password Reset' })
-  @ApiResponse({ status: 200, description: 'Email sent' })
+  @Post('/send-otp')
+  @ApiOperation({ summary: 'Send OTP' })
+  @ApiResponse({ status: 200, description: 'OTP sent' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  @ApiBody({ type: RequestPasswordResetDto })
-  async requestPasswordReset(@Body() body: RequestPasswordResetDto) {
+  @ApiBody({ type: sendOtpDto })
+  async sendOtp(@Body() body: sendOtpDto) {
     try {
-      return await this.authService.requestPasswordReset(body.email);
-    } catch (error: any) {
-      this.logger.error('request password reset failed', error.stack);
+      return await this.authService.sendOtp(body.email);
+    } catch (error) {
+      this.logger.error('Send OTP failed', error.stack);
       throw new BadRequestException(
-        error.response?.data?.message || 'Failed to request password reset',
+        error.response?.data?.message || 'Failed to send OTP',
+      );
+    }
+  }
+
+  @Post('/verify-otp')
+  @ApiOperation({ summary: 'Verify OTP' })
+  @ApiResponse({ status: 200, description: 'OTP verified' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiBody({ type: VerifyOtplDto })
+  async verifyOtp(@Body() body: VerifyOtplDto) {
+    try {
+      return await this.authService.verifyOtp(body.email, body.otp);
+    } catch (error) {
+      this.logger.error('Verify OTP failed', error.stack);
+      throw new BadRequestException(
+        error.response?.data?.message || 'Failed to verify OTP',
+      );
+    }
+  }
+
+  @Post('/verify-email')  
+  @ApiOperation({ summary: 'Verify Email' })
+  @ApiResponse({ status: 200, description: 'Email verified' })
+  @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiBody({ type: VerifyEmailDto })
+  async verifyEmail(@Body() body: VerifyEmailDto) {
+    try {
+      return await this.authService.verifyEmail(body.email);
+    } catch (error) {
+      this.logger.error('Verify email failed', error.stack);
+      throw new BadRequestException(
+        error.response?.data?.message || 'Failed to verify email',
       );
     }
   }
@@ -157,16 +174,11 @@ export class AuthController {
   @ApiBody({ type: PasswordResetDto })
   async passwordReset(
     @Body() body: PasswordResetDto,
-    @Query('token') token: string,
   ) {
-    if (!token) {
-      throw new BadRequestException('Token is required');
-    }
     try {
       return await this.authService.passwordReset(
         body.email,
         body.password,
-        token,
       );
     } catch (error: any) {
       this.logger.error('reset password failed', error.stack);
@@ -180,12 +192,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify Email' })
   @ApiResponse({ status: 200, description: 'Email verified' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
-  async verifyEmailGet(@Query('token') token: string) {
-    if (!token) {
-      throw new BadRequestException('Token is required');
-    }
+  @ApiBody({ type: VerifyEmailDto })
+  async verifyEmailGet(@Body() email: string) {
     try {
-      return await this.authService.verifyEmail(token);
+      return await this.authService.verifyEmail(email);
     } catch (error: any) {
       this.logger.error('verify email failed', error.stack);
       throw new BadRequestException(
@@ -219,8 +229,7 @@ export class AuthController {
   @Get('/google')
   @ApiOperation({ summary: 'Google Auth' })
   @UseGuards(AuthGuard('google'))
-  async googleAuth(@Request() req) {
-    return req.user;
+  async googleAuth() {
   }
 
   @Get('/google/callback')
