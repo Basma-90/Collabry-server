@@ -5,19 +5,19 @@ import { MailerService } from '@nestjs-modules/mailer';
 export class MailService {
   constructor(private readonly mailerService: MailerService) {}
 
-  async sendVerificationEmail(email: string, name: string, verificationLink: string): Promise<void> {
+  async sendVerificationEmail(email: string, otp: string): Promise<void> {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Verify Your Email Address',
-      text: `Hello ${name},\n\nPlease verify your email address by clicking the link below:\n\n${verificationLink}\n\nIf you did not request this, please ignore this email.\n\nThanks,\nCollabry Team`, 
+      text: `Hello,\n\nPlease verify your email address using the OTP below:\n\n${otp}\n\nIf you did not create an account, please ignore this email.\n\nThanks,\nCollabry Team`,
     });
   }
 
-  async sendResetPasswordEmail(email: string, name: string, resetLink: string): Promise<void> {
+  async sendResetPasswordEmail(email: string, otp: string): Promise<void> {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Reset Your Password',
-      text: `Hello ${name},\n\nYou requested to reset your password. Please click the link below to reset it:\n\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nThanks,\nCollabry Team`, 
+      text: `Hello,\n\n Your OTP Is :\n\n${otp}\n\nIf you did not request this, please ignore this email.\n\nThanks,\nCollabry Team`, 
     });
   }
 }
