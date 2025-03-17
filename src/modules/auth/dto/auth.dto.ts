@@ -102,19 +102,6 @@ export class RefreshTokenDto {
     @IsNotEmpty()
     refreshToken: string;
 }
-
-export class RequestPasswordResetDto {
-    @ApiProperty({
-      description: 'Email of the user',
-      type: String,
-      required: true,
-      example: 'email@example.com'
-    })
-    @IsEmail()
-    @IsNotEmpty()
-    email: string;
-}
-
 export class PasswordResetDto {
     @ApiProperty({
       description: 'New password of the user',

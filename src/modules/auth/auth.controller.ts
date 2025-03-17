@@ -21,7 +21,7 @@ import {
 } from './dto/auth.dto';
 import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiHeaders, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { authGuard } from '../../guards/auth.guard';
 import { Logger } from '@nestjs/common';
 
@@ -192,6 +192,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify Email' })
   @ApiResponse({ status: 200, description: 'Email verified' })
   @ApiResponse({ status: 400, description: 'Bad Request' })
+  @ApiBody({ type: VerifyEmailDto })
   async verifyEmailGet(@Body() email: string) {
     try {
       return await this.authService.verifyEmail(email);
