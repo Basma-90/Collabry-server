@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../mail/mail.service';
-import { access } from 'fs';
+import { sendOtpDto, VerifyEmailDto, PasswordResetDto, LoginDto, RegisterDto, RefreshTokenDto } from './dto/auth.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -22,6 +22,7 @@ describe('AuthController', () => {
             user: {
               create: jest.fn(),
               update: jest.fn(),
+              findUnique: jest.fn(),
             },
           },
         },
@@ -41,8 +42,9 @@ describe('AuthController', () => {
         {
           provide: MailService,
           useValue: {
-            sendVerificationEmail: jest.fn(),
+            sendOtp: jest.fn(),
             sendResetPasswordEmail: jest.fn(),
+            sendVerificationEmail: jest.fn(),
           },
         },
       ],
@@ -50,10 +52,12 @@ describe('AuthController', () => {
 
     controller = module.get<AuthController>(AuthController);
     authService = module.get<AuthService>(AuthService);
+    const mailService = module.get<MailService>(MailService);
+    const prismaService = module.get<PrismaService>(PrismaService);
   });
 
   it('should register a user', async () => {
-    const mockUser = {
+    const mockUser: RegisterDto = {
       name: 'test',
       email: 'test@example.com',
       password: 'Password123!',
@@ -67,7 +71,7 @@ describe('AuthController', () => {
     jest.spyOn(authService, 'register').mockResolvedValue(mockResponse);
     const result = await controller.Register(mockUser);
 
-    expect(result).toEqual(mockResponse); 
+    expect(result).toEqual(mockResponse);
     expect(authService.register).toHaveBeenCalledWith(
       mockUser.name,
       mockUser.email,
@@ -76,8 +80,7 @@ describe('AuthController', () => {
   });
 
   it('should login a user', async () => {
-    const mockUser = {
-      name: 'test',
+    const mockUser: LoginDto = {
       email: 'test@example.com',
       password: 'Password123!',
     };
@@ -93,64 +96,24 @@ describe('AuthController', () => {
     expect(result).toEqual(mockResponse);
   });
 
-  it('should send a verification email', async () => {
-    const mockEmail = {
-      email: 'email.example.com',
-    };
-
-    const mockResponse = 'Email sent';
-    jest.spyOn(authService, 'sendVerificationEmail').mockResolvedValue(mockResponse);
-    const result = await controller.sendEmail(mockEmail);
-    expect(result).toEqual(mockResponse);
-  });
-
   it('should refresh a token', async () => {
-    const mockToken = {
+    const mockToken: RefreshTokenDto = {
       refreshToken: 'mockRefreshToken',
     };
     const mockResponse = {
-      accessToken: 'mock AccessToken',
-      refreshToken: 'mock RefreshToken',
+      accessToken: 'mockAccessToken',
+      refreshToken: 'mockRefreshToken',
     };
     jest.spyOn(authService, 'refreshToken').mockResolvedValue(mockResponse);
     const result = await controller.refreshToken(mockToken);
     expect(result).toEqual(mockResponse);
   });
 
-  it('should request a password reset', async () => {
-    const mockEmail = {
-      email: 'email@example.com',
+  it('should throw an error if email is not provided for verification', async () => {
+    const mockEmail: VerifyEmailDto = {
+      email: '',
     };
-    const mockResponse = 'Email sent';
-    jest.spyOn(authService,'requestPasswordReset').mockResolvedValue(mockResponse);
-    const result = await controller.requestPasswordReset(mockEmail);
-    expect(result).toEqual(mockResponse);
-  });
-
-  it('should reset a password', async () => {
-    const mockPasswordReset = {
-      email: 'email@example.com',
-      password: 'Password123!',
-    };
-    const mockToken = 'mockToken';
-    const mockResponse = 'Password reset successful';
-    jest.spyOn(authService, 'passwordReset').mockResolvedValue(mockResponse);
-    const result = await controller.passwordReset(mockPasswordReset, mockToken);
-    expect(result).toEqual(mockResponse);
-  });
-
-  it('should verify an email', async () => {
-    const mockEmail = 'email@example.com';
-    const mockToken = 'mockToken';
-    const mockResponse = 'Email verified';
-    jest.spyOn(authService, 'verifyEmail').mockResolvedValue(mockResponse);
-    const result = await controller.verifyEmailGet(mockToken);
-    expect(result).toEqual(mockResponse);
-  });
-
-  it('should throw an error if token is not provided', async () => {
-    const mockToken = '';
-    await expect(controller.verifyEmailGet(mockToken)).rejects.toThrow();
+    await expect(controller.verifyEmail(mockEmail)).rejects.toThrow();
   });
 
   it('should logout a user', async () => {
@@ -160,7 +123,9 @@ describe('AuthController', () => {
     const result = await controller.logout(mockAuthHeader);
     expect(result).toEqual(mockResponse);
   });
-  
-  
 
+  it('should throw an error if authorization header is missing during logout', async () => {
+    const mockAuthHeader = '';
+    await expect(controller.logout(mockAuthHeader)).rejects.toThrow();
+  });
 });

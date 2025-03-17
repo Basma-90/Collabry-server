@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, NotFoundException, ConflictException
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import * as jwt from 'jsonwebtoken';
 import { Tokens } from './types';
