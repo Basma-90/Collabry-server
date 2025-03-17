@@ -1,174 +1,99 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
-import { Tokens } from './types';
-import * as jwt from 'jsonwebtoken';
-import { MailService } from '../mail/mail.service';
-import { session } from 'passport';
-import { config } from 'dotenv';
 import { PrismaService } from 'src/prisma/prisma.service';
-config();
+import { MailService } from '../mail/mail.service';
+import * as jwt from 'jsonwebtoken';
+import { Tokens } from './types';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prismaService: PrismaService,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-    private mailService: MailService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
+
   async login(email: string, password: string): Promise<Tokens> {
     const user = await this.getUserByEmail(email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    if (!user.isEmailVerified) {
-      throw new Error('Email not verified');
-    }
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.isEmailVerified) throw new UnauthorizedException('Email not verified');
+
     const isPasswordMatch = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatch) {
-      throw new Error('Invalid credentials');
-    }
-    const accessToken = await this.generateAccessToken(user.id);
-    const refreshToken = await this.generateRefreshToken(user.id);
-    user.refreshToken = refreshToken;
-    await this.prismaService.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        refreshToken: refreshToken,
-      },
-    });
-    return {
-      accessToken,
-      refreshToken,
-    };
+    if (!isPasswordMatch) throw new UnauthorizedException('Invalid credentials');
+
+    return this.generateAndStoreTokens(user.id);
   }
-  async register(
-    name: string,
-    email: string,
-    password: string,
-  ): Promise<Tokens> {
+
+  async register(name: string, email: string, password: string): Promise<Tokens> {
+    if (await this.getUserByEmail(email)) {
+      throw new ConflictException('User already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await this.prisma.user.create({
+      data: { name, email, password: hashedPassword },
+    });
+
+    await this.sendOtp(newUser.email);
+    return this.generateAndStoreTokens(newUser.id);
+  }
+
+  async sendOtp(email: string): Promise<void> {
+    const otp = this.generateOtp();
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.prisma.user.update({ where: { email }, data: { OTP: otp, OTPExpiry: otpExpiry } });
+    this.mailService.sendVerificationEmail(email, otp);
+  }
+
+  async verifyOtp(email: string, otp: string): Promise<void> {
     const user = await this.getUserByEmail(email);
-    if (user) {
-      throw new Error('User already exists');
-    }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = await this.prismaService.user.create({
-      data: {
-        name: name,
-        email: email,
-        password: hashedPassword,
-      },
-    });
-    const accessToken = await this.generateAccessToken(newUser.id);
-    const refreshToken = await this.generateRefreshToken(newUser.id);
-    newUser.refreshToken = refreshToken;
-    await this.prismaService.user.update({
-      where: {
-        id: newUser.id,
-      },
-      data: {
-        refreshToken: refreshToken,
-      },
-    });
-    await this.mailService.sendVerificationEmail(
-      newUser.email,
-      newUser.name,
-      `${this.configService.get('emailVerificationURL.URL')}?token=${await this.generateEmailVerificationToken({ email: newUser.email })}`,
-    );
-    return {
-      accessToken,
-      refreshToken,
-    };
+    if (!user) throw new NotFoundException('User not found');
+    if (user.OTP !== otp) throw new UnauthorizedException('Invalid OTP');
+    if (new Date() > user.OTPExpiry) throw new UnauthorizedException('OTP expired');
+    await this.prisma.user.update({ where: { email }, data: { OTP: null, OTPExpiry: null ,isOTPVerified:true} });
   }
-  async verifyEmail(token: string) {
-    const payload = jwt.verify(
-      token,
-      this.configService.get('privateKey.secret'),
-    ) as Prisma.UserWhereUniqueInput;
-    const user = await this.getUserByEmail(payload.email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    user.isEmailVerified = true;
-    await this.prismaService.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        isEmailVerified: true,
-      },
-    });
-    return 'Email verified';
-  }
-  async requestPasswordReset(email: string) {
+
+  async verifyEmail(email: string): Promise<void> {
     const user = await this.getUserByEmail(email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const token = await this.generatePasswordResetToken({ email: user.email });
-    const resetLink = `${this.configService.get('passwordResetURL.URL')}?token=${token}`;
-    this.mailService.sendResetPasswordEmail(user.email, user.name, resetLink);
-    return 'Email sent';
+    if (!user) throw new NotFoundException('User not found');
+    if (user.isEmailVerified) throw new ConflictException('Email already verified');
+    if(!user.isOTPVerified) throw new UnauthorizedException('OTP not verified');
+    await this.prisma.user.update({ where: { email }, data: { isEmailVerified: true } });
   }
-  async passwordReset(email: string, password: string, token: string) {
-    const payload = jwt.verify(
-      token,
-      this.configService.get('privateKey.secret'),
-    ) as Prisma.UserWhereUniqueInput;
-    if (payload.email !== email) {
-      throw new Error('Invalid token');
-    }
+
+  async passwordReset(email: string, newPassword: string): Promise<void> {
     const user = await this.getUserByEmail(email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    await this.prismaService.user.update({
-      where: {
-        id: user.id,
-      },
-      data: {
-        password: hashedPassword,
-      },
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.isEmailVerified) throw new UnauthorizedException('Email not verified');
+    if (!user.isOTPVerified) throw new UnauthorizedException('OTP not verified');
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword, OTP: null, OTPExpiry: null },
     });
-    return 'Password reset successful';
   }
+
+  async generateAndStoreTokens(userId: string): Promise<Tokens> {
+    const accessToken = await this.generateAccessToken(userId);
+    const refreshToken = await this.generateRefreshToken(userId);
+
+    await this.prisma.user.update({ where: { id: userId }, data: { refreshToken } });
+    return { accessToken, refreshToken };
+  }
+
+  generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
   async getUserByEmail(email: string) {
-    return await this.prismaService.user.findUnique({
-      where: {
-        email: email,
-      },
-    });
+    return this.prisma.user.findUnique({ where: { email } });
   }
-  async getUserById(userId: string) {
-    if (!userId) {
-      throw new Error('User not found');
-    }
-    return await this.prismaService.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
-  }
-  async generateEmailVerificationToken(payload: Prisma.UserWhereUniqueInput) {
-    return jwt.sign(payload, this.configService.get('privateKey.secret'), {
-      expiresIn: '1d',
-      algorithm: 'RS256',
-    });
-  }
-  async generatePasswordResetToken(payload: Prisma.UserWhereUniqueInput) {
-    return jwt.sign(payload, this.configService.get('privateKey.secret'), {
-      expiresIn: '1d',
-      algorithm: 'RS256',
-    });
-  }
+
   async generateRefreshToken(userId: string): Promise<string> {
     return jwt.sign({ userId }, this.configService.get('privateKey.secret'), {
       expiresIn: this.configService.get('refreshTokenTTL.TTL'),
@@ -179,6 +104,13 @@ export class AuthService {
     return jwt.sign({ userId }, this.configService.get('privateKey.secret'), {
       expiresIn: this.configService.get('accessTokenTTL.TTL'),
       algorithm: 'RS256',
+    });
+  }
+  async getUserById(userId: string) {
+    return this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
     });
   }
   async refreshToken(refreshToken: string): Promise<Tokens> {
@@ -197,7 +129,7 @@ export class AuthService {
     const accessToken = await this.generateAccessToken(user.id);
     const newRefreshToken = await this.generateRefreshToken(user.id);
     user.refreshToken = newRefreshToken;
-    await this.prismaService.user.update({
+    await this.prisma.user.update({
       where: {
         id: user.id,
       },
@@ -210,18 +142,6 @@ export class AuthService {
       refreshToken: newRefreshToken,
     };
   }
-  async sendVerificationEmail(email: string) {
-    const user = await this.getUserByEmail(email);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    await this.mailService.sendVerificationEmail(
-      user.email,
-      user.name,
-      `${this.configService.get('emailVerificationURL.URL')}?token=${await this.generateEmailVerificationToken({ email: user.email })}`,
-    );
-    return 'Email sent';
-  }
   async logout(accessToken: string) {
     const payload = jwt.verify(
       accessToken,
@@ -232,7 +152,7 @@ export class AuthService {
       throw new Error('User not found');
     }
     user.refreshToken = null;
-    await this.prismaService.user.update({
+    await this.prisma.user.update({
       where: {
         id: user.id,
       },
@@ -243,23 +163,24 @@ export class AuthService {
     return 'Logout successful';
   }
   async googleLogin(req) {
-    if (!req.user) {
+    console.log(req);
+    if (!req) {
       return 'No user from google';
     }
-    const user = await this.getUserByEmail(req.user.email);
+    const user = await this.getUserByEmail(req.email);
     if (!user) {
-      const newUser = await this.prismaService.user.create({
+      const newUser = await this.prisma.user.create({
         data: {
-          name: req.user.name,
-          email: req.user.email,
-          password: await bcrypt.hash(req.user.id, 10),
+          name: req.firstName + ' ' + req.lastName,
+          email: req.email,
+          password: await bcrypt.hash(req.accessToken, 10),
           isEmailVerified: true,
         },
       });
       const accessToken = await this.generateAccessToken(newUser.id);
       const refreshToken = await this.generateRefreshToken(newUser.id);
       newUser.refreshToken = refreshToken;
-      await this.prismaService.user.update({
+      await this.prisma.user.update({
         where: {
           id: newUser.id,
         },
@@ -278,7 +199,7 @@ export class AuthService {
     const accessToken = await this.generateAccessToken(user.id);
     const refreshToken = await this.generateRefreshToken(user.id);
     user.refreshToken = refreshToken;
-    await this.prismaService.user.update({
+    await this.prisma.user.update({
       where: {
         id: user.id,
       },

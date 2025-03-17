@@ -46,7 +46,40 @@ export class RegisterDto {
     password: string;
 }
 
-export class SendVerificationEmailDto {
+export class VerifyOtplDto {
+    @ApiProperty({
+      description: 'Email of the user',
+      type: String,
+      required: true,
+      example: 'email@example.com',
+    })
+    @IsEmail()
+    @IsNotEmpty()
+    email: string;
+
+    @ApiProperty({
+      description: 'OTP of the user',
+      type: Number,
+      required: true,
+      example: 123456
+    })
+    @IsNotEmpty()
+    otp: string;
+}
+
+export class VerifyEmailDto {
+    @ApiProperty({
+      description: 'Email of the user',
+      type: String,
+      required: true,
+      example: 'email@example.com',
+    })
+    @IsEmail()
+    @IsNotEmpty()
+    email: string;
+}
+
+export class sendOtpDto {
     @ApiProperty({
       description: 'Email of the user',
       type: String,
