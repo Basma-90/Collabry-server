@@ -132,16 +132,24 @@ export class ProfilesService {
         profile: true,
       },
     });
+
     if (!user) {
       throw new UnauthorizedException();
     }
+
     const buffer = await this.cloudinaryService.uploadFile(image);
-    if (buffer) {
+
+    if (!buffer) {
+      throw new BadRequestException('Image upload failed');
+    }
+
+    if (user.profile) {
       if (user.profile.profileImageUrl && user.profile.profileImagePublicId) {
         await this.cloudinaryService.deleteFile(
           user.profile.profileImagePublicId,
         );
       }
+
       await this.prisma.user.update({
         where: {
           id: userId,
@@ -156,8 +164,21 @@ export class ProfilesService {
         },
       });
     } else {
-      throw new BadRequestException('Image upload failed');
+      await this.prisma.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          profile: {
+            create: {
+              profileImageUrl: buffer.url,
+              profileImagePublicId: buffer.public_id,
+            },
+          },
+        },
+      });
     }
+
     return 'user profile image updated';
   }
 }

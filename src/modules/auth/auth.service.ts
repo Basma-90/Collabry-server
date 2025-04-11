@@ -60,7 +60,7 @@ export class AuthService {
       where: { email },
       data: { OTP: otp, OTPExpiry: otpExpiry },
     });
-    this.mailService.sendVerificationEmail(email, otp);
+    await this.mailService.sendVerificationEmail(email, otp);
   }
 
   async verifyOtp(email: string, otp: string): Promise<void> {

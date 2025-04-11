@@ -62,11 +62,14 @@ export class CategoriesController {
  * @access  public 
  ------------------------------------------------*/
   @Get('publications/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a publications of category' })
   @ApiResponse({ status: 200, description: 'Publications found' })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  async getCategoryPublications(@Param('id') id: string) {
-    return this.categoriesService.getCategoryPublications(id);
+  async getCategoryPublications(@Param('id') id: string, @Req() req) {
+    const userId = req.user?.id;
+    return this.categoriesService.getCategoryPublications(id, userId);
   }
 
   /**-----------------------------------------------

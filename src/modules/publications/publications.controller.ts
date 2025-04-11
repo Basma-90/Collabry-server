@@ -30,11 +30,14 @@ import {
 } from './dtos/publication.dto';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { authGuard } from '../../guards/auth.guard';
+import {
+  PublicationDetailResponseDto,
+  PublicationListResponseDto,
+} from './dtos/publicationResponse.dto';
 
 @Controller('publications')
 export class PublicationsController {
   constructor(private readonly publicationsService: PublicationsService) {}
-
   /**-----------------------------------------------
  * @desc    create a new publication
  * @route   /publications/create 
@@ -45,7 +48,11 @@ export class PublicationsController {
   @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new publication' })
-  @ApiResponse({ status: 201, description: 'Publication created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Publication created successfully',
+    type: PublicationDetailResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBody({ type: CreatePublicationDto })
   async createPublication(
@@ -59,18 +66,19 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    get a single publication
- * @route   /publications/publication/:id 
- * @method  Get
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    get a single publication
+* @route   /publications/publication/:id 
+* @method  Get
+* @access  for authenticated user 
+------------------------------------------------*/
   @Get('publication/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get a single publication' })
+  @ApiOperation({ summary: 'Get a single publication- may be draft' })
   @ApiResponse({
     status: 200,
     description: 'Publication retrieved successfully',
+    type: PublicationDetailResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getSinglePublication(@Req() req, @Param('id') publicationId: string) {
@@ -81,11 +89,11 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    get a publications of user
- * @route   /publications/user 
- * @method  Get
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    get a publications of user
+* @route   /publications/user 
+* @method  Get
+* @access  for authenticated user 
+------------------------------------------------*/
   @Get('user')
   @UseGuards(authGuard)
   @ApiBearerAuth()
@@ -93,6 +101,7 @@ export class PublicationsController {
   @ApiResponse({
     status: 200,
     description: 'Publications retrieved successfully',
+    type: [PublicationListResponseDto],
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllPublicationsForUser(@Req() req) {
@@ -102,16 +111,20 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    change a publication
- * @route   /publications/publication/:id 
- * @method  Put
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    change a publication
+* @route   /publications/publication/:id 
+* @method  Put
+* @access  for authenticated user 
+------------------------------------------------*/
   @Put('publication/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change a publication' })
-  @ApiResponse({ status: 200, description: 'Publication updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Publication updated successfully',
+    type: PublicationDetailResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBody({ type: CreatePublicationDto })
   async changePublication(
@@ -127,11 +140,11 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    change status of publication
- * @route   /publications/author/status/:id
- * @method  Patch
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    change status of publication
+* @route   /publications/author/status/:id
+* @method  Patch
+* @access  for authenticated user 
+------------------------------------------------*/
   @Patch('author/status/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
@@ -139,6 +152,7 @@ export class PublicationsController {
   @ApiResponse({
     status: 200,
     description: 'Publication status changed successfully',
+    type: PublicationDetailResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBody({ type: PublicationStatusDto })
@@ -155,11 +169,11 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    change visibility of publication
- * @route   /publications/author/visibility/:id
- * @method  Patch
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    change visibility of publication
+* @route   /publications/author/visibility/:id
+* @method  Patch
+* @access  for authenticated user 
+------------------------------------------------*/
   @Patch('author/visibility/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
@@ -167,6 +181,7 @@ export class PublicationsController {
   @ApiResponse({
     status: 200,
     description: 'Publication visibility changed successfully',
+    type: PublicationDetailResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBody({ type: PublicationVisibilityDto })
@@ -183,50 +198,65 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    get all publications 
- * @route   /publications/all
- * @method  Get
- * @access  public 
- ------------------------------------------------*/
+* @desc    get all publications 
+* @route   /publications/all
+* @method  Get
+* @access  public 
+------------------------------------------------*/
   @Get('all')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all publications' })
   @ApiResponse({
     status: 200,
     description: 'All publications retrieved successfully',
+    type: [PublicationListResponseDto],
   })
-  async getAllPublications() {
-    return await this.publicationsService.getAllPublications();
+  async getAllPublications(@Req() req) {
+    const userId = req.user?.id;
+
+    return await this.publicationsService.getPublicPublications(userId);
   }
 
   /**-----------------------------------------------
- * @desc    get single publication 
- * @route   /publications/:id
- * @method  Get
- * @access  public 
- ------------------------------------------------*/
+* @desc    get single publication 
+* @route   /publications/:id
+* @method  Get
+* @access  public 
+------------------------------------------------*/
   @Get(':id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get single publication' })
   @ApiResponse({
     status: 200,
     description: 'Publication retrieved successfully',
+    type: PublicationDetailResponseDto,
   })
-  async getPublication(@Param('id') publicationId: string) {
-    return await this.publicationsService.getPublication(publicationId);
+  async getPublication(@Req() req, @Param('id') publicationId: string) {
+    const userId = req.user?.id;
+    return await this.publicationsService.getPublicPublication(
+      publicationId,
+      userId,
+    );
   }
 
   //--------------------------------------
 
   /**-----------------------------------------------
- * @desc    create a new section for the publication
- * @route   /publications/section/create 
- * @method  Post
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    create a new section for the publication
+* @route   /publications/section/create 
+* @method  Post
+* @access  for authenticated user 
+------------------------------------------------*/
   @Post('section/create')
   @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new section for the publication' })
-  @ApiResponse({ status: 201, description: 'Section created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Section created successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: SectionDto })
@@ -244,11 +274,11 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    get a single section for the publication
- * @route   /publications/section/:id 
- * @method  Get
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    get a single section for the publication
+* @route   /publications/section/:id 
+* @method  Get
+* @access  for authenticated user 
+------------------------------------------------*/
   @Get('section/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
@@ -266,16 +296,19 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    update a single section for the publication
- * @route   /publications/section/:id 
- * @method  Put
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    update a single section for the publication
+* @route   /publications/section/:id 
+* @method  Put
+* @access  for authenticated user 
+------------------------------------------------*/
   @Put('section/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a single section for the publication' })
-  @ApiResponse({ status: 200, description: 'Section updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Section updated successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiBody({ type: UpdateSectionDto })
   async updateSection(
@@ -291,16 +324,19 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    add a new file for section
- * @route   /publications/section/add-file/:id 
- * @method  Post
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    add a new file for section
+* @route   /publications/section/add-file/:id 
+* @method  Post
+* @access  for authenticated user 
+------------------------------------------------*/
   @Post('section/add-file/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add a new file for section' })
-  @ApiResponse({ status: 201, description: 'File added successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'File added successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
@@ -330,11 +366,11 @@ export class PublicationsController {
   }
 
   /**-----------------------------------------------
- * @desc    delete a file for section
- * @route   /publications/section/file/:id 
- * @method  delete
- * @access  for authenticated user 
- ------------------------------------------------*/
+* @desc    delete a file for section
+* @route   /publications/section/file/:id 
+* @method  delete
+* @access  for authenticated user 
+------------------------------------------------*/
   @Delete('section/file/:id')
   @UseGuards(authGuard)
   @ApiBearerAuth()
@@ -346,5 +382,42 @@ export class PublicationsController {
       req.user.id,
       fileId,
     );
+  }
+
+  /**-----------------------------------------------
+* @desc    delete a publication
+* @route   /publications/publication/:id 
+* @method  delete
+* @access  for authenticated user - admin
+------------------------------------------------*/
+  @Delete('publication/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a publication' })
+  @ApiResponse({ status: 200, description: 'Publication deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Publication not found' })
+  async deletePublication(@Req() req, @Param('id') publicationId: string) {
+    return await this.publicationsService.deletePublication(
+      req.user.id,
+      publicationId,
+    );
+  }
+
+  /**-----------------------------------------------
+   * @desc    delete a section
+   * @route   /publications/section/:id
+   * @method  delete
+   * @access  for authenticated user
+   * ------------------------------------------------*/
+  @Delete('section/:id')
+  @UseGuards(authGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a section' })
+  @ApiResponse({ status: 200, description: 'Section deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Section not found' })
+  async deleteSection(@Req() req, @Param('id') sectionId: string) {
+    return await this.publicationsService.deleteSection(req.user.id, sectionId);
   }
 }

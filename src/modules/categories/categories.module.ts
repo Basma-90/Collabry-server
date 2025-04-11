@@ -8,9 +8,10 @@ import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
 import { CloudinaryProvider } from '../../storage/cloudinary/cloudinary.provider';
 import { AuthService } from '../auth/auth.service';
 import { MailService } from '../mail/mail.service';
+import { PublicationsModule } from '../publications/publications.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, PublicationsModule],
   controllers: [CategoriesController],
   providers: [
     CategoriesService,
@@ -18,6 +19,7 @@ import { MailService } from '../mail/mail.service';
 
     JwtService,
     CloudinaryService,
+
     CloudinaryProvider,
     AuthService,
     MailService,
