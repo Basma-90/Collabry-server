@@ -22,5 +22,6 @@ import { MailService } from '../mail/mail.service';
     AuthService,
     MailService,
   ],
+  exports: [PublicationsService],
 })
 export class PublicationsModule {}

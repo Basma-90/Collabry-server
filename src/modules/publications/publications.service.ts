@@ -19,6 +19,7 @@ export class PublicationsService {
     private readonly prisma: PrismaService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
+
   async createPublication(
     userId: string,
     createPublicationDto: CreatePublicationDto,
@@ -52,6 +53,7 @@ export class PublicationsService {
     });
     return 'Publication created successfully';
   }
+
   async getSinglePublication(userId: string, publicationId: string) {
     const publication = await this.prisma.publication.findUnique({
       where: {
@@ -59,10 +61,12 @@ export class PublicationsService {
       },
       include: {
         author: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
+          include: {
+            profile: {
+              select: {
+                profileImageUrl: true,
+              },
+            },
           },
         },
         collaborations: {
@@ -76,6 +80,11 @@ export class PublicationsService {
                 name: true,
                 role: true,
                 id: true,
+                profile: {
+                  select: {
+                    profileImageUrl: true,
+                  },
+                },
               },
             },
           },
@@ -85,10 +94,15 @@ export class PublicationsService {
             files: true,
           },
           orderBy: {
-            orderIndex: 'asc', // Order sections by their index
+            orderIndex: 'asc',
           },
         },
         category: true,
+        likes: {
+          where: {
+            userId: userId,
+          },
+        },
       },
     });
 
@@ -107,43 +121,81 @@ export class PublicationsService {
       );
     }
 
-    const collaborators = publication.collaborations
-      .filter((collab) => collab.status === 'ACCEPTED')
-      .map((collab) => ({
-        id: collab.id,
-        user: collab.user,
-        status: collab.status,
-      }));
-
-    return {
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-      visibility: publication.visibility,
-      status: publication.status,
-      sections: publication.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        orderIndex: section.orderIndex,
-        type: section.type,
-        content: section.content,
-        files: section.files.map((file) => ({
-          id: file.id,
-          url: file.url,
-        })),
-      })),
-      categoryName: publication.category.name,
-      categoryId: publication.category.id,
-      authorName: publication.author.name,
-      authorEmail: publication.author.email,
-      authorId: publication.author.id,
-      collaborators: collaborators,
-      createdAt: publication.createdAt,
-      updatedAt: publication.updatedAt,
-    };
+    return this.mapPublicationToResponse(publication, {
+      userId,
+      includeDetails: true,
+      includeCollaborationStatus: true,
+    });
   }
+
+  async getPublicPublication(publicationId: string, userId?: string) {
+    const publication = await this.prisma.publication.findUnique({
+      where: {
+        id: publicationId,
+        visibility: 'PUBLIC',
+        status: 'PUBLISHED',
+      },
+      include: {
+        category: true,
+        author: {
+          include: {
+            profile: {
+              select: {
+                profileImageUrl: true,
+              },
+            },
+          },
+        },
+        sections: {
+          include: {
+            files: true,
+          },
+          orderBy: {
+            orderIndex: 'asc',
+          },
+        },
+        likes: userId
+          ? {
+              where: {
+                userId: userId,
+              },
+            }
+          : false,
+        collaborations: {
+          where: {
+            status: 'ACCEPTED',
+          },
+          select: {
+            id: true,
+            status: true,
+            user: {
+              select: {
+                profile: {
+                  select: {
+                    profileImageUrl: true,
+                  },
+                },
+                email: true,
+                name: true,
+                role: true,
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!publication) {
+      throw new NotFoundException('Publication not found or not accessible');
+    }
+
+    return this.mapPublicationToResponse(publication, {
+      userId,
+      includeDetails: true,
+    });
+  }
+
   async getAllPublicationsForUser(userId: string) {
     const authoredPublications = await this.prisma.publication.findMany({
       where: {
@@ -151,6 +203,20 @@ export class PublicationsService {
       },
       include: {
         category: true,
+        author: {
+          include: {
+            profile: {
+              select: {
+                profileImageUrl: true,
+              },
+            },
+          },
+        },
+        likes: {
+          where: {
+            userId: userId,
+          },
+        },
       },
     });
 
@@ -165,10 +231,23 @@ export class PublicationsService {
       },
       include: {
         category: true,
+        author: {
+          include: {
+            profile: {
+              select: {
+                profileImageUrl: true,
+              },
+            },
+          },
+        },
+        likes: {
+          where: {
+            userId: userId,
+          },
+        },
       },
     });
 
-    // Combine the results (avoiding duplicates)
     const allPublicationIds = new Set();
     const allPublications = [];
 
@@ -181,18 +260,76 @@ export class PublicationsService {
       },
     );
 
-    return allPublications.map((publication) => ({
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-      visibility: publication.visibility,
-      status: publication.status,
-      categoryName: publication.category.name,
-      categoryId: publication.category.id,
-      createdAt: publication.createdAt,
-    }));
+    return allPublications.map((publication) =>
+      this.mapPublicationToResponse(publication, { userId }),
+    );
+  }
+
+  async getPublicPublications(userId?: string) {
+    try {
+      const publications = await this.prisma.publication.findMany({
+        where: {
+          visibility: 'PUBLIC',
+          status: 'PUBLISHED',
+          author: {
+            id: { not: undefined },
+          },
+        },
+        include: {
+          category: true,
+          author: {
+            include: {
+              profile: {
+                select: {
+                  profileImageUrl: true,
+                },
+              },
+            },
+          },
+          sections: {
+            include: {
+              files: true,
+            },
+          },
+          likes: userId
+            ? {
+                where: {
+                  userId: userId,
+                },
+              }
+            : false,
+          collaborations: {
+            where: {
+              status: 'ACCEPTED',
+            },
+            select: {
+              id: true,
+              status: true,
+              user: {
+                select: {
+                  profile: {
+                    select: {
+                      profileImageUrl: true,
+                    },
+                  },
+                  email: true,
+                  name: true,
+                  role: true,
+                  id: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return publications.map((publication) =>
+        this.mapPublicationToResponse(publication, { userId }),
+      );
+    } catch (error) {
+      console.error('Error fetching publications:', error);
+      return [];
+    }
   }
 
   async changePublication(
@@ -424,9 +561,7 @@ export class PublicationsService {
     return 'Publication visibility changed successfully';
   }
 
-  // ------------------------------------------------
   async getSingleSection(userId: string, sectionId: string) {
-    // Check if section exists and get publication relationship data
     const section = await this.prisma.section.findUnique({
       where: {
         id: sectionId,
@@ -454,7 +589,6 @@ export class PublicationsService {
       throw new NotFoundException('Section not found');
     }
 
-    // Check access permissions (owner or any accepted collaborator)
     const isOwner = section.publication.authorId === userId;
     const isCollaborator = section.publication.collaborations.length > 0;
 
@@ -636,130 +770,226 @@ export class PublicationsService {
     return 'File deleted successfully';
   }
 
-  async getAllPublications() {
-    const publications = await this.prisma.publication.findMany({
-      where: {
-        visibility: 'PUBLIC',
-        status: 'PUBLISHED',
-      },
-      include: {
-        category: true,
-        author: true,
-        sections: {
-          include: {
-            files: true,
-          },
-        },
-        collaborations: {
-          where: {
-            status: 'ACCEPTED',
-          },
-          select: {
-            id: true,
-            status: true,
-            user: {
-              select: {
-                email: true,
-                name: true,
-                role: true,
-                id: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const collaborators = publications.flatMap((publication) =>
-      publication.collaborations.map((collab) => ({
-        id: collab.id,
-        user: collab.user,
-        status: collab.status,
-      })),
-    );
-
-    return publications.map((publication) => ({
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-      visibility: publication.visibility,
-      sections: publication.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        orderIndex: section.orderIndex,
-        type: section.type,
-        content: section.content,
-        files: section.files.map((file) => ({
-          id: file.id,
-          url: file.url,
-        })),
-      })),
-      categoryName: publication.category.name,
-      categoryId: publication.category.id,
-      authorName: publication.author.email,
-      authorId: publication.author.id,
-      collaborators: collaborators,
-      createdAt: publication.createdAt,
-    }));
-  }
-
-  async getPublication(publicationId: string) {
+  async deletePublication(userId: string, publicationId: string) {
     const publication = await this.prisma.publication.findUnique({
       where: {
         id: publicationId,
-        visibility: 'PUBLIC',
-        status: 'PUBLISHED',
       },
       include: {
+        author: true,
+        collaborations: {
+          where: {
+            userId: userId,
+            status: 'ACCEPTED',
+            role: { in: ['AUTHOR', 'EDITOR'] },
+          },
+        },
         sections: {
           include: {
             files: true,
-          },
-          orderBy: {
-            orderIndex: 'asc',
-          },
-        },
-        category: true,
-        author: {
-          select: {
-            email: true,
-            name: true,
-            id: true,
-          },
-        },
-        collaborations: {
-          where: {
-            status: 'ACCEPTED',
-          },
-          select: {
-            id: true,
-            status: true,
-            user: {
-              select: {
-                email: true,
-                name: true,
-                role: true,
-                id: true,
-              },
-            },
           },
         },
       },
     });
 
     if (!publication) {
-      throw new NotFoundException('Publication not found or not accessible');
+      throw new NotFoundException('Publication not found');
     }
 
-    const collaborators = publication.collaborations.map((collab) => ({
-      id: collab.id,
-      user: collab.user,
-      status: collab.status,
-    }));
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        role: true,
+      },
+    });
 
-    return {
+    const isOwner = publication.authorId === userId;
+    const isCollaborator = publication.collaborations.length > 0;
+    const isAdmin = user?.role === 'ADMIN';
+
+    if (!isOwner && !isCollaborator && !isAdmin) {
+      throw new UnauthorizedException(
+        'You do not have permission to delete this publication',
+      );
+    }
+
+    if (publication.sections && publication.sections.length > 0) {
+      const allFiles = publication.sections
+        .flatMap((section) => section.files)
+        .filter((file) => file.publicId);
+
+      await Promise.all(
+        allFiles.map((file) =>
+          this.cloudinaryService.deleteFile(file.publicId),
+        ),
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.like.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.comment.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.bookmark.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.collaboration.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.version.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.reward.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.aIFeature.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.event.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.sectionFile.deleteMany({
+        where: {
+          section: {
+            publicationId: publicationId,
+          },
+        },
+      }),
+
+      this.prisma.section.deleteMany({
+        where: {
+          publicationId: publicationId,
+        },
+      }),
+
+      this.prisma.publication.delete({
+        where: {
+          id: publicationId,
+        },
+      }),
+    ]);
+
+    return 'Publication and all related data deleted successfully';
+  }
+
+  async deleteSection(userId: string, sectionId: string) {
+    const section = await this.prisma.section.findUnique({
+      where: {
+        id: sectionId,
+      },
+      include: {
+        publication: {
+          include: {
+            collaborations: {
+              where: {
+                userId: userId,
+                status: 'ACCEPTED',
+                role: { in: ['AUTHOR', 'EDITOR'] },
+              },
+            },
+          },
+        },
+        files: true,
+      },
+    });
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
+    }
+
+    const isOwner = section.publication.authorId === userId;
+    const isCollaborator = section.publication.collaborations.length > 0;
+
+    if (!isOwner && !isCollaborator) {
+      throw new UnauthorizedException(
+        'You do not have permission to delete this section',
+      );
+    }
+
+    if (section.files && section.files.length > 0) {
+      await Promise.all(
+        section.files.map(async (file) => {
+          await this.cloudinaryService.deleteFile(file.publicId);
+        }),
+      );
+    }
+
+    await this.prisma.section.delete({
+      where: {
+        id: sectionId,
+      },
+    });
+
+    return 'Section deleted successfully';
+  }
+
+  mapPublicationToResponse(
+    publication: any,
+    options?: {
+      userId?: string;
+      includeDetails?: boolean;
+      includeCollaborationStatus?: boolean;
+    },
+  ) {
+    const {
+      userId,
+      includeDetails = false,
+      includeCollaborationStatus = false,
+    } = options || {};
+
+    const collaborators =
+      publication.collaborations?.map((collab) => {
+        const collaborator = {
+          id: collab.id,
+          user: {
+            id: collab.user.id,
+            name: collab.user.name,
+            role: collab.user.role,
+            profileImageUrl: collab.user.profile?.profileImageUrl || null,
+          },
+        };
+
+        if (includeCollaborationStatus) {
+          return {
+            ...collaborator,
+            status: collab.status,
+          };
+        }
+
+        return collaborator;
+      }) || [];
+
+    const isLiked = userId && publication.likes?.length > 0;
+
+    const basePublication = {
       id: publication.id,
       title: publication.title,
       abstract: publication.abstract,
@@ -767,25 +997,44 @@ export class PublicationsService {
       language: publication.language,
       visibility: publication.visibility,
       status: publication.status,
-      sections: publication.sections.map((section) => ({
-        id: section.id,
-        title: section.title,
-        orderIndex: section.orderIndex,
-        type: section.type,
-        content: section.content,
-        files: section.files.map((file) => ({
-          id: file.id,
-          url: file.url,
-        })),
-      })),
       categoryName: publication.category.name,
       categoryId: publication.category.id,
-      authorName: publication.author.name,
-      authorEmail: publication.author.email,
+      authorName: publication.author.name || 'Unknown',
       authorId: publication.author.id,
-      collaborators: collaborators,
+      authorAvatar: publication.author.profile?.profileImageUrl || null,
+      collaborators,
       createdAt: publication.createdAt,
       updatedAt: publication.updatedAt,
+    };
+
+    if (includeDetails) {
+      const sections =
+        publication.sections?.map((section) => ({
+          id: section.id,
+          title: section.title,
+          orderIndex: section.orderIndex,
+          type: section.type,
+          content: section.content,
+          files:
+            section.files?.map((file) => ({
+              id: file.id,
+              url: file.url,
+            })) || [],
+        })) || [];
+
+      return {
+        ...basePublication,
+        sections,
+        ...(publication.author.email && {
+          authorEmail: publication.author.email,
+        }),
+        ...(userId !== undefined && { isLiked }),
+      };
+    }
+
+    return {
+      ...basePublication,
+      ...(userId !== undefined && { isLiked }),
     };
   }
 }

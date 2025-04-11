@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dtos/createCategory.dto';
 import { ObjectId } from 'mongodb';
+import { PublicationsService } from '../publications/publications.service';
 
 export interface CategoryTreeNode {
   id: string;
@@ -17,7 +18,10 @@ export interface CategoryTreeNode {
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private publicationsService: PublicationsService,
+  ) {}
 
   async createCategory(userId: string, createCategoryDto: CreateCategoryDto) {
     const admin = await this.prisma.user.findUnique({
@@ -84,26 +88,73 @@ export class CategoriesService {
     };
   }
 
-  async getCategoryPublications(id: string) {
+  async getCategoryPublications(id: string, userId?: string) {
     if (!ObjectId.isValid(id)) {
       throw new BadRequestException('Category ID is invalid');
     }
+
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: { publications: true },
+      include: {
+        publications: {
+          where: {
+            visibility: 'PUBLIC',
+            status: 'PUBLISHED',
+          },
+          include: {
+            author: {
+              include: {
+                profile: {
+                  select: {
+                    profileImageUrl: true,
+                  },
+                },
+              },
+            },
+            category: true,
+            likes: userId
+              ? {
+                  where: {
+                    userId: userId,
+                  },
+                }
+              : false,
+            collaborations: {
+              where: {
+                status: 'ACCEPTED',
+              },
+              select: {
+                id: true,
+                status: true,
+                user: {
+                  select: {
+                    profile: {
+                      select: {
+                        profileImageUrl: true,
+                      },
+                    },
+                    email: true,
+                    name: true,
+                    role: true,
+                    id: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!category) {
       throw new NotFoundException('Category not found');
     }
 
-    return category.publications.map((publication) => ({
-      id: publication.id,
-      title: publication.title,
-      abstract: publication.abstract,
-      keywords: publication.keywords,
-      language: publication.language,
-    }));
+    return category.publications.map((publication) =>
+      this.publicationsService.mapPublicationToResponse(publication, {
+        userId,
+      }),
+    );
   }
 
   async updateCategory(
@@ -124,7 +175,6 @@ export class CategoriesService {
 
     const { parentId, ...categoryData } = updateCategoryDto;
 
-    // Validate parent category if parentId is provided
     if (!ObjectId.isValid(parentId)) {
       throw new BadRequestException('Parent category ID is invalid');
     }

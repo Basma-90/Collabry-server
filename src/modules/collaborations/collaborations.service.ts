@@ -510,7 +510,6 @@ export class CollaborationService {
       },
     });
 
-    // Send notification to the publication author
     await this.notificationService.createNotification({
       userId: publication.authorId,
       type: 'CONTRIBUTION_REQUEST',
@@ -565,7 +564,6 @@ export class CollaborationService {
       },
     });
 
-    // Notify the requester about the status change
     await this.notificationService.createNotification({
       userId: updatedCollaboration.userId,
       type: 'CONTRIBUTION_RESPONSE',
