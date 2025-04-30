@@ -20,6 +20,7 @@ model User {
   updatedAt       DateTime  @updatedAt
   refreshToken    String?
   isEmailVerified Boolean?  @default(false)
+  deletions    ChatDeletion[]
 
   // Relations
   profile              Profile?
@@ -42,6 +43,7 @@ model User {
   eventMessages       EventMessage[]
   chatMessages        ChatMessage[]
   userTokens          UserTokenRelation[]
+  ChatJoinRequest     ChatJoinRequest[]
 
   @@map("users")
 }
@@ -411,11 +413,23 @@ model Chat {
   updatedAt DateTime @updatedAt
 
   // Relations
-  participants ChatParticipant[]
-  messages     ChatMessage[]
+  participants    ChatParticipant[]
+  messages        ChatMessage[]
+  ChatJoinRequest ChatJoinRequest[]
+  deletions    ChatDeletion[]
 
   @@index([name])
   @@map("chats")
+}
+
+model ChatDeletion {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  chat     Chat     @relation(fields: [chatId], references: [id])
+  chatId   String
+  user     User     @relation(fields: [userId], references: [id])
+  userId   String
+
+  @@unique([chatId, userId]) // Prevent duplicate deletions
 }
 
 model ChatParticipant {
@@ -446,7 +460,20 @@ model ChatMessage {
   chat     Chat   @relation(fields: [chatId], references: [id])
   chatId   String @db.ObjectId
 
+  status    MessageReadStatus @default(SENT)
+  isStarred Boolean           @default(false)
+
   @@index([senderId, chatId])
+}
+
+model ChatJoinRequest {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  user        User              @relation(fields: [userId], references: [id])
+  userId      String            @db.ObjectId
+  chat        Chat              @relation(fields: [chatId], references: [id])
+  chatId      String            @db.ObjectId
+  status      JoinRequestStatus @default(PENDING) // PENDING, APPROVED, REJECTED
+  requestedAt DateTime          @default(now())
 }
 
 model AIFeature {
@@ -471,6 +498,18 @@ enum UserRole {
   USER
   MODERATOR
   ADMIN
+}
+
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MessageReadStatus {
+  SENT
+  DELIVERED
+  READ
 }
 
 enum PublicationStatus {
