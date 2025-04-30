@@ -3,8 +3,7 @@ import { Socket, Server } from "socket.io";
 import { ChatService } from "./chat.service";
 import { MessageService } from "./message.service";
 import { UseGuards } from "@nestjs/common";
-import { authGuardSocket } from "src/guards/WS.guard";
-
+import { authGuardSocket } from "../../guards/WS.guard";
 
 @WebSocketGateway(4002, {
     cors: { origin: "*" }

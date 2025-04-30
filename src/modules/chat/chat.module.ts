@@ -8,14 +8,22 @@ import { CloudinaryProvider } from '../../storage/cloudinary/cloudinary.provider
 import { CloudinaryService } from '../../storage/cloudinary/cloudinary.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ProfilesService } from '../profiles/profiles.service';
-
+import { JwtModule, JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
 
 @Module({
-    providers: [ChatGateway, ChatService, AuthService
-        , MessageService, CloudinaryService
-        , CloudinaryProvider,
-        PrismaService,],
-    imports: [ProfilesModule],
+    providers: [
+        ChatGateway,
+        ChatService,
+        AuthService,
+        MessageService,
+        CloudinaryService,
+        CloudinaryProvider,
+        PrismaService,
+        JwtService,
+        MailService
+    ],
+    imports: [ProfilesModule,JwtModule], 
     controllers: [],
 })
-export class ChatModule { }
+export class ChatModule {}
